@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, lazy, Suspense } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { useAppStore } from '@/lib/store'
 import { io as socketIo } from 'socket.io-client'
@@ -10,8 +10,6 @@ import LiveSlider from '@/components/sportix/LiveSlider'
 import HeroBanner from '@/components/sportix/HeroBanner'
 import CategoryTabs from '@/components/sportix/CategoryTabs'
 import VideoPlayer from '@/components/sportix/VideoPlayer'
-import AdminPanel from '@/components/sportix/AdminPanel'
-import LiveControlRoom from '@/components/sportix/LiveControlRoom'
 import BottomNav from '@/components/sportix/BottomNav'
 import LoginPage from '@/components/auth/LoginPage'
 import SignupPage from '@/components/auth/SignupPage'
@@ -20,8 +18,12 @@ import {
   Star, Clock, Flame, TrendingUp, Play, ArrowLeft,
   Radio, Trophy, Calendar, Award, Heart, ListVideo, Settings,
   Eye, Users, Zap, Globe, Bell, Monitor, Moon, Sun,
-  ChevronRight, Wifi, Volume2, Shield, Sparkles
+  ChevronRight, Wifi, Volume2, Shield, Sparkles, Tablet, MonitorX
 } from 'lucide-react'
+
+// Lazy load heavy components for faster initial page load
+const AdminPanel = lazy(() => import('@/components/sportix/AdminPanel'))
+const LiveControlRoom = lazy(() => import('@/components/sportix/LiveControlRoom'))
 
 /* ──────────────────────── Types ──────────────────────── */
 
@@ -718,12 +720,52 @@ function SettingsPage({ session }: { session: any }) {
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(false)
   useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 1024)
+    const check = () => setIsMobile(window.innerWidth < 768)
     check()
     window.addEventListener('resize', check)
     return () => window.removeEventListener('resize', check)
   }, [])
   return isMobile
+}
+
+/* ──────────────────────── Mobile Admin Blocked Screen ──────────────────────── */
+function MobileAdminBlocked() {
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center p-6" style={{ background: '#0B0F14' }}>
+      <div className="flex flex-col items-center gap-4 text-center max-w-sm">
+        <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-[#ff3b3b]/10 ring-1 ring-[#ff3b3b]/20">
+          <Tablet className="h-10 w-10 text-[#ff3b3b]" />
+        </div>
+        <div>
+          <h1 className="text-xl font-bold text-white mb-2">Admin Panel Unavailable</h1>
+          <p className="text-sm text-white/50 leading-relaxed">
+            Admin panel is only available on tablets and desktop computers. 
+            Please switch to a larger device to access the admin controls.
+          </p>
+        </div>
+        <button
+          onClick={() => useAppStore.getState().setCurrentView('home')}
+          className="mt-2 flex items-center gap-2 rounded-xl bg-[#00ff88] px-6 py-3 text-sm font-bold text-[#02040a] transition-all hover:bg-[#00dd75] active:scale-[0.97]"
+        >
+          <Monitor className="h-4 w-4" />
+          Go to Home
+        </button>
+        <p className="mt-4 text-[11px] text-white/20">Sportix Live v2.0 — Admin restricted to 768px+ screens</p>
+      </div>
+    </div>
+  )
+}
+
+/* ──────────────────────── Suspense Loading Fallback ──────────────────────── */
+function AdminLoadingFallback() {
+  return (
+    <div className="fixed inset-0 flex items-center justify-center" style={{ background: '#0B0F14' }}>
+      <div className="flex flex-col items-center gap-3">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#00ff88]/20 border-t-[#00ff88]" />
+        <p className="text-xs text-white/25">Loading Admin Panel...</p>
+      </div>
+    </div>
+  )
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -839,7 +881,7 @@ export default function Home() {
   useEffect(() => {
     loadData()
     fetch('/api/admin/seed').catch(() => {})
-    const interval = setInterval(loadData, 15000)
+    const interval = setInterval(loadData, 30000)
     return () => clearInterval(interval)
   }, [loadData])
 
@@ -902,24 +944,28 @@ export default function Home() {
     }
   }, [])
 
-  // ── Redirect admin to popular if on mobile ──
+  // ── Redirect admin views to home if on mobile ──
   useEffect(() => {
-    if (isMobile && currentView === 'admin') {
-      useAppStore.getState().setCurrentView('popular')
+    if (isMobile && (currentView === 'admin' || currentView === 'live-control-room')) {
+      useAppStore.getState().setCurrentView('home')
     }
     prevIsMobileRef.current = isMobile
   }, [isMobile, currentView])
 
-  // ── Player, Admin & Live Control Room (full-screen, no layout) ──
+  // ── Player (full-screen, no layout) ──
   if (currentView === 'player') return <VideoPlayer />
-  if (currentView === 'admin') {
+
+  // ── Admin Panel: blocked on mobile, lazy loaded on desktop ──
+  if (currentView === 'admin' || currentView === 'live-control-room') {
     if (isMobile) {
-      useAppStore.getState().setCurrentView('popular')
-      return null
+      return <MobileAdminBlocked />
     }
-    return <AdminPanel />
+    return (
+      <Suspense fallback={<AdminLoadingFallback />}>
+        {currentView === 'admin' ? <AdminPanel /> : <LiveControlRoom />}
+      </Suspense>
+    )
   }
-  if (currentView === 'live-control-room') return <LiveControlRoom />
 
   // ── Derived data ──
   const liveStreams = streams.filter(s => s.status === 'live')

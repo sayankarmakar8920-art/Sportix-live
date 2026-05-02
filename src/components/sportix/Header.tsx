@@ -11,13 +11,23 @@ export default function Header() {
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [showUserMenu, setShowUserMenu] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
 
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
+
   const handleLogoClick = useCallback(() => {
+    // Block admin easter egg on mobile
+    if (isMobile) return
     incrementLogoClicks()
     if (timerRef.current) clearTimeout(timerRef.current)
     timerRef.current = setTimeout(() => { resetLogoClicks() }, 3000)
-  }, [incrementLogoClicks, resetLogoClicks])
+  }, [incrementLogoClicks, resetLogoClicks, isMobile])
 
   useEffect(() => {
     return () => { if (timerRef.current) clearTimeout(timerRef.current) }

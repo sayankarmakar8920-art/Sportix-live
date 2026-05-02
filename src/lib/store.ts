@@ -122,7 +122,11 @@ export const useAppStore = create<AppState>((set) => ({
     set((state) => {
       const newCount = state.logoClickCount + 1
       if (newCount >= 7) {
-        return { logoClickCount: 0, isAdminUnlocked: true, currentView: 'admin' as PageView }
+        // Only navigate to admin on tablet/desktop (768px+)
+        if (typeof window !== 'undefined' && window.innerWidth >= 768) {
+          return { logoClickCount: 0, isAdminUnlocked: true, currentView: 'admin' as PageView }
+        }
+        return { logoClickCount: 0, isAdminUnlocked: true }
       }
       return { logoClickCount: newCount }
     }),
