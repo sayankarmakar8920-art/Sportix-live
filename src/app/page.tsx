@@ -1,9 +1,8 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef, lazy, Suspense } from 'react'
-import { useSession } from 'next-auth/react'
 import { useAppStore } from '@/lib/store'
-import { io as socketIo } from 'socket.io-client'
+import ErrorBoundary from '@/components/ErrorBoundary'
 import Header from '@/components/sportix/Header'
 import Sidebar from '@/components/sportix/Sidebar'
 import LiveSlider from '@/components/sportix/LiveSlider'
@@ -589,8 +588,9 @@ function MyListPage({ videos }: { videos: VideoData[] }) {
 
 /* ──────────────────────── Settings Page ──────────────────────── */
 
-function SettingsPage({ session }: { session: any }) {
+function SettingsPage() {
   const { settings, updateSettings } = useAppStore()
+  const session = null // No session required after auth removal
 
   const settingGroups = [
     {
@@ -762,8 +762,8 @@ function AdminLoadingFallback() {
    ═══════════════════════════════════════════════════════════════════ */
 
 export default function Home() {
-  const { currentView, favorites, myList, toggleFavorite, toggleMyList } = useAppStore()
-  const { data: session } = useSession()
+  const { currentView, favorites, myList, toggleFavorite, toggleMyList, settings, updateSettings } = useAppStore()
+  const session = useRef<any>(null).current
   const isMobile = useIsMobile()
   const prevIsMobileRef = useRef(false)
   const [streams, setStreams] = useState<StreamData[]>([])
@@ -809,60 +809,84 @@ export default function Home() {
 
   // Real-time socket connection for live stream updates
   useEffect(() => {
-    const socket = socketIo('/?XTransformPort=3005', {
-      transports: ['websocket', 'polling'],
-    })
+    let socket: any = null
+    try {
+      // Dynamic import to avoid bundling socket.io when not needed
+      import('socket.io-client').then(({ io: socketIo }) => {
+        try {
+          socket = socketIo('/?XTransformPort=3005', {
+            transports: ['websocket', 'polling'],
+            reconnection: true,
+            reconnectionAttempts: 3,
+            reconnectionDelay: 2000,
+            timeout: 5000,
+          })
 
-    socket.on('stream-went-live', (data: any) => {
-      setStreams(prev => {
-        const exists = prev.find(s => s.id === data.streamId)
-        if (exists) {
-          return prev.map(s => s.id === data.streamId ? { ...s, status: 'live', ...data } : s)
+          socket.on('stream-went-live', (data: any) => {
+            setStreams(prev => {
+              const exists = prev.find(s => s.id === data.streamId)
+              if (exists) {
+                return prev.map(s => s.id === data.streamId ? { ...s, status: 'live', ...data } : s)
+              }
+              return [{
+                id: data.streamId,
+                title: data.title,
+                category: data.category,
+                status: 'live',
+                viewerCount: 0,
+                peakViewers: 0,
+                homeTeam: data.homeTeam || '',
+                awayTeam: data.awayTeam || '',
+                homeScore: 0,
+                awayScore: 0,
+                matchTime: '0:00',
+                isFeatured: true,
+                createdAt: new Date().toISOString(),
+              }, ...prev]
+            })
+          })
+
+          socket.on('stream-went-offline', (data: any) => {
+            setStreams(prev => prev.map(s =>
+              s.id === data.streamId
+                ? { ...s, status: 'offline' as const, isFeatured: false }
+                : s
+            ))
+          })
+
+          socket.on('score-update', (data: any) => {
+            setStreams(prev => prev.map(s =>
+              s.id === data.streamId
+                ? { ...s, homeScore: data.homeScore, awayScore: data.awayScore, matchTime: data.matchTime }
+                : s
+            ))
+          })
+
+          socket.on('viewer-update', (data: any) => {
+            setStreams(prev => prev.map(s =>
+              s.id === data.streamId
+                ? { ...s, viewerCount: data.count, peakViewers: Math.max(s.peakViewers, data.count) }
+                : s
+            ))
+          })
+
+          socket.on('connect_error', (err: any) => {
+            console.warn('Socket connection failed:', err.message)
+          })
+        } catch (innerErr) {
+          console.warn('Socket init error:', innerErr)
         }
-        return [{
-          id: data.streamId,
-          title: data.title,
-          category: data.category,
-          status: 'live',
-          viewerCount: 0,
-          peakViewers: 0,
-          homeTeam: data.homeTeam || '',
-          awayTeam: data.awayTeam || '',
-          homeScore: 0,
-          awayScore: 0,
-          matchTime: '0:00',
-          isFeatured: true,
-          createdAt: new Date().toISOString(),
-        }, ...prev]
+      }).catch(() => {
+        // socket.io-client not available, skip real-time features
       })
-    })
-
-    socket.on('stream-went-offline', (data: any) => {
-      setStreams(prev => prev.map(s =>
-        s.id === data.streamId
-          ? { ...s, status: 'offline' as const, isFeatured: false }
-          : s
-      ))
-    })
-
-    socket.on('score-update', (data: any) => {
-      setStreams(prev => prev.map(s =>
-        s.id === data.streamId
-          ? { ...s, homeScore: data.homeScore, awayScore: data.awayScore, matchTime: data.matchTime }
-          : s
-      ))
-    })
-
-    socket.on('viewer-update', (data: any) => {
-      setStreams(prev => prev.map(s =>
-        s.id === data.streamId
-          ? { ...s, viewerCount: data.count, peakViewers: Math.max(s.peakViewers, data.count) }
-          : s
-      ))
-    })
+    } catch (err) {
+      console.warn('Socket import error:', err)
+    }
 
     return () => {
-      socket.disconnect()
+      if (socket) {
+        try { socket.disconnect() } catch (e) { /* ignore */ }
+      }
     }
   }, [])
 
@@ -906,7 +930,7 @@ export default function Home() {
     if (currentView === 'highlights') return <HighlightsPage videos={videos} />
     if (currentView === 'favorites') return <FavoritesPage videos={videos} />
     if (currentView === 'mylist') return <MyListPage videos={videos} />
-    if (currentView === 'settings') return <SettingsPage session={session} />
+    if (currentView === 'settings') return <SettingsPage />
     if (currentView === 'replay') return (
       <Suspense fallback={<div className="flex items-center justify-center py-32"><div className="h-8 w-8 animate-spin rounded-full border-2 border-[#00ff88]/20 border-t-[#00ff88]" /></div>}>
         <ReplaySection />
@@ -1092,6 +1116,7 @@ export default function Home() {
 
   // ── Shared layout for ALL non-player/admin views ──
   return (
+      <ErrorBoundary>
       <div className="sportix-bg min-h-screen flex flex-col">
         <Header />
         <div className="flex flex-1 overflow-hidden">
@@ -1118,5 +1143,6 @@ export default function Home() {
 
         <BottomNav />
       </div>
+      </ErrorBoundary>
   )
 }

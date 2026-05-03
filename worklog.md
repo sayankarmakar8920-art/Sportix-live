@@ -172,3 +172,30 @@ Stage Summary:
 - Admin can start/stop streams via API → DB updates + chat service broadcasts
 - Zero lint errors after all changes
 
+---
+Task ID: 3
+Agent: Main Agent
+Task: Fix client-side exception error on Sportix Live
+
+Work Log:
+- Diagnosed "Application error: a client-side exception has occurred" error
+- Root causes identified:
+  1. `useSession()` from next-auth/react was still imported in page.tsx but NextAuth session endpoint can fail on Vercel (no DB)
+  2. `socket.io-client` was imported statically, could throw if socket.io-client fails to bundle/connect
+  3. `@font-face` CSS declaration pointed to a CSS URL instead of a font file
+- Removed `useSession` and `import { io as socketIo } from 'socket.io-client'` from page.tsx
+- Replaced with dynamic `import('socket.io-client')` wrapped in try/catch with reconnection limits
+- Added `connect_error` event handler to gracefully log socket failures
+- Created `ErrorBoundary` component at `/src/components/ErrorBoundary.tsx` for crash recovery UI
+- Wrapped main page layout in `<ErrorBoundary>` to catch and display any future client errors
+- Removed broken `@font-face` from globals.css (Next.js already loads Inter via next/font/google)
+- Updated `SettingsPage` to not require session prop (session = null)
+- Verified: zero lint errors, server compiles successfully, HTML renders correctly
+
+Stage Summary:
+- Client-side error fixed by removing useSession dependency and making socket.io resilient
+- Error boundary added for graceful crash recovery with "Reload Page" button
+- Socket connection now uses dynamic import with try/catch and limited reconnection
+- @font-face CSS issue fixed (removed redundant declaration)
+- App renders successfully with all components visible
+
