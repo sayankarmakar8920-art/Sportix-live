@@ -18,12 +18,17 @@ import {
   Star, Clock, Flame, TrendingUp, Play, ArrowLeft,
   Radio, Trophy, Calendar, Award, Heart, ListVideo, Settings,
   Eye, Users, Zap, Globe, Bell, Monitor, Moon, Sun,
-  ChevronRight, Wifi, Volume2, Shield, Sparkles, Tablet, MonitorX
+  ChevronRight, Wifi, Volume2, Shield, Sparkles, Tablet, MonitorX,
+  Film, RotateCcw
 } from 'lucide-react'
 
 // Lazy load heavy components for faster initial page load
 const AdminPanel = lazy(() => import('@/components/sportix/AdminPanel'))
 const LiveControlRoom = lazy(() => import('@/components/sportix/LiveControlRoom'))
+const HLSPlayer = lazy(() => import('@/components/sportix/HLSPlayer'))
+const ReplaySection = lazy(() => import('@/components/sportix/ReplaySection'))
+const LiveReactions = lazy(() => import('@/components/sportix/LiveReactions'))
+const AdBanner = lazy(() => import('@/components/sportix/AdBanner'))
 
 /* ──────────────────────── Types ──────────────────────── */
 
@@ -985,6 +990,11 @@ export default function Home() {
     if (currentView === 'favorites') return <FavoritesPage videos={videos} />
     if (currentView === 'mylist') return <MyListPage videos={videos} />
     if (currentView === 'settings') return <SettingsPage session={session} />
+    if (currentView === 'replay') return (
+      <Suspense fallback={<div className="flex items-center justify-center py-32"><div className="h-8 w-8 animate-spin rounded-full border-2 border-[#00ff88]/20 border-t-[#00ff88]" /></div>}>
+        <ReplaySection />
+      </Suspense>
+    )
 
     // Default: Home page content
     if (loading) {

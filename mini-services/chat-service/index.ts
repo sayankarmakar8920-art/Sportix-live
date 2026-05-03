@@ -16,6 +16,15 @@ const io = new Server(httpServer, {
 const streamRooms = new Map<string, Set<string>>()
 const roomViewers = new Map<string, number>()
 
+// Reaction tracking: streamId -> type -> count
+const streamReactions = new Map<string, Map<string, number>>()
+
+// Viewer sessions: streamId -> sessionId -> { userId, joinedAt }
+const viewerSessions = new Map<string, Map<string, { userId: string; joinedAt: number }>>()
+
+// Stream health tracking: streamId -> { bitrate, fps, startTime }
+const streamHealthData = new Map<string, { bitrate: number; fps: number; startTime: number }>()
+
 function getViewerCount(streamId: string): number {
   return streamRooms.get(streamId)?.size || 0
 }
@@ -36,6 +45,36 @@ setInterval(() => {
     io.to(streamId).emit('viewer-update', { streamId, count: newCount })
   })
 }, 5000)
+
+// Emit reaction-update to rooms every 5 seconds
+setInterval(() => {
+  streamReactions.forEach((reactions, streamId) => {
+    const reactionList = Array.from(reactions.entries()).map(([type, count]) => ({ type, count }))
+    io.to(streamId).emit('reaction-update', { streamId, reactions: reactionList })
+  })
+}, 5000)
+
+// Emit stream-health to admin room every 10 seconds
+setInterval(() => {
+  const streams: Array<{ streamId: string; viewerCount: number; bitrate: number; fps: number; uptime: number }> = []
+  streamRooms.forEach((_, streamId) => {
+    const health = streamHealthData.get(streamId) || { bitrate: 4500, fps: 60, startTime: Date.now() }
+    const uptime = Math.floor((Date.now() - health.startTime) / 1000)
+    // Simulate small bitrate/fps fluctuations
+    const bitrate = health.bitrate + Math.floor(Math.random() * 200) - 100
+    const fps = Math.min(60, Math.max(24, health.fps + Math.floor(Math.random() * 3) - 1))
+    streams.push({
+      streamId,
+      viewerCount: roomViewers.get(streamId) || getViewerCount(streamId),
+      bitrate,
+      fps,
+      uptime,
+    })
+  })
+  if (streams.length > 0) {
+    io.to('admin').emit('stream-health', { streams })
+  }
+}, 10000)
 
 io.on('connection', (socket) => {
   console.log(`Connected: ${socket.id}`)
@@ -121,12 +160,65 @@ io.on('connection', (socket) => {
     console.log(`[SCORE] ${data.homeScore}-${data.awayScore} (${data.matchTime})`)
   })
 
+  // --- reaction-add ---
+  socket.on('reaction-add', (data: { streamId: string; type: string; userId: string }) => {
+    const { streamId, type, userId } = data
+    if (!streamReactions.has(streamId)) {
+      streamReactions.set(streamId, new Map())
+    }
+    const reactions = streamReactions.get(streamId)!
+    reactions.set(type, (reactions.get(type) || 0) + 1)
+    const count = reactions.get(type) || 0
+    // Broadcast to stream room
+    io.to(streamId).emit('reaction-add', { streamId, type, count, userId })
+    // Global broadcast for viewer count update
+    io.emit('reaction-add', { streamId, type, count })
+  })
+
+  // --- ad-impression ---
+  socket.on('ad-impression', (data: { adId: string; streamId: string; userId: string; sessionId: string }) => {
+    console.log(`[AD-IMP] adId=${data.adId} streamId=${data.streamId} userId=${data.userId} sessionId=${data.sessionId}`)
+    socket.emit('ad-impression-ack', { adId: data.adId, success: true })
+  })
+
+  // --- viewer-join ---
+  socket.on('viewer-join', (data: { streamId: string; userId: string; sessionId: string }) => {
+    const { streamId, userId, sessionId } = data
+    // Track session
+    if (!viewerSessions.has(streamId)) {
+      viewerSessions.set(streamId, new Map())
+    }
+    const sessions = viewerSessions.get(streamId)!
+    sessions.set(sessionId, { userId, joinedAt: Date.now() })
+    // Join the room
+    socket.join(streamId)
+    // Broadcast updated viewer count
+    const viewerCount = sessions.size
+    roomViewers.set(streamId, viewerCount)
+    io.to(streamId).emit('viewer-join', { streamId, viewerCount, userId })
+    console.log(`[VIEWER-JOIN] userId=${userId} streamId=${streamId} (total: ${viewerCount})`)
+  })
+
+  // --- viewer-leave ---
+  socket.on('viewer-leave', (data: { streamId: string; sessionId: string }) => {
+    const { streamId, sessionId } = data
+    const sessions = viewerSessions.get(streamId)
+    if (sessions) {
+      sessions.delete(sessionId)
+      const viewerCount = sessions.size
+      roomViewers.set(streamId, viewerCount)
+      io.to(streamId).emit('viewer-leave', { streamId, viewerCount })
+      console.log(`[VIEWER-LEAVE] sessionId=${sessionId} streamId=${streamId} (remaining: ${viewerCount})`)
+    }
+  })
+
   socket.on('disconnect', () => {
     streamRooms.forEach((users, streamId) => {
       if (users.delete(socket.id)) {
         broadcastViewerCount(streamId)
       }
     })
+    // Note: viewer sessions use sessionId (not socket.id), so cleanup happens via viewer-leave events
     console.log(`Disconnected: ${socket.id}`)
   })
 

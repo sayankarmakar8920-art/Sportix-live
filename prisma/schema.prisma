@@ -46,6 +46,9 @@ model Stream {
   updatedAt   DateTime @updatedAt
   chatMessages ChatMessage[]
   videos      Video[]
+  recordings  Recording[]
+  reactions   Reaction[]
+  viewerSessions ViewerSession[]
 }
 
 model Video {
@@ -83,4 +86,76 @@ model ContinueWatching {
   duration  Int      @default(0)
   progress  Float    @default(0)
   watchedAt DateTime @default(now())
+}
+
+model Ad {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  type        String   @default("banner")  // "pre-roll", "mid-roll", "overlay", "banner"
+  mediaUrl    String                        // image or video URL (R2 or local)
+  targetUrl   String?                       // click-through URL
+  category    String?                       // target sport: "football", "basketball", etc
+  duration    Int?                          // video ad duration in seconds
+  position    String?                       // "top", "bottom", "sidebar"
+  isActive    Boolean  @default(true)
+  impressions Int      @default(0)
+  clicks      Int      @default(0)
+  priority    Int      @default(0)
+  createdBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model AdEvent {
+  id        String   @id @default(cuid())
+  adId      String
+  event     String                        // "impression", "click", "close", "complete"
+  userId    String?
+  streamId  String?
+  sessionId String?
+  metadata  String?                       // JSON string for extra data
+  createdAt DateTime @default(now())
+}
+
+model Recording {
+  id          String   @id @default(cuid())
+  streamId    String
+  title       String
+  description String?
+  thumbnail   String?
+  videoUrl    String                        // R2 or local path
+  duration    Int?
+  fileSize    Int?
+  views       Int      @default(0)
+  status      String   @default("processing") // "processing", "ready", "failed", "uploading"
+  uploadedToR2 Boolean @default(false)
+  r2Url       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  stream      Stream   @relation(fields: [streamId], references: [id])
+}
+
+model Reaction {
+  id          String   @id @default(cuid())
+  streamId    String
+  type        String                        // "like", "love", "fire", "clap", "wow", "laugh"
+  count       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  stream      Stream   @relation(fields: [streamId], references: [id])
+}
+
+model ViewerSession {
+  id          String   @id @default(cuid())
+  streamId    String
+  userId      String?
+  sessionId   String
+  joinedAt    DateTime @default(now())
+  leftAt      DateTime?
+  isLive      Boolean  @default(true)
+
+  stream      Stream   @relation(fields: [streamId], references: [id])
 }

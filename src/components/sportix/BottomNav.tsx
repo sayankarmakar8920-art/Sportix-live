@@ -15,6 +15,7 @@ const NAV_ITEMS: { id: PageView; label: string; icon: React.ComponentType<{ clas
 
 const MORE_ITEMS: { id: PageView; label: string }[] = [
   { id: 'popular', label: 'Popular' },
+  { id: 'replay', label: 'Replays' },
   { id: 'schedule', label: 'Schedule' },
   { id: 'leagues', label: 'Leagues' },
   { id: 'favorites', label: 'Favorites' },

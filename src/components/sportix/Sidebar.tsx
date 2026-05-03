@@ -4,7 +4,7 @@ import { useAppStore } from '@/lib/store'
 import type { PageView } from '@/lib/store'
 import {
   Home, Radio, Trophy, Calendar, Award, Flame,
-  Heart, ListVideo, Settings, Crown, ChevronRight
+  Heart, ListVideo, Settings, Crown, ChevronRight, RotateCcw
 } from 'lucide-react'
 
 const NAV_ITEMS: { id: PageView; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
@@ -14,6 +14,7 @@ const NAV_ITEMS: { id: PageView; label: string; icon: React.ComponentType<{ clas
   { id: 'sports', label: 'Sports', icon: Trophy },
   { id: 'schedule', label: 'Schedule', icon: Calendar },
   { id: 'leagues', label: 'Leagues', icon: Award },
+  { id: 'replay', label: 'Replays', icon: RotateCcw },
   { id: 'highlights', label: 'Highlights', icon: Flame },
   { id: 'favorites', label: 'Favorites', icon: Heart },
   { id: 'mylist', label: 'My List', icon: ListVideo },

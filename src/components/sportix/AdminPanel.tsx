@@ -56,6 +56,11 @@ import {
   Timer,
   CloudUpload,
   Square,
+  Film,
+  Megaphone,
+  CheckCircle,
+  XCircle,
+  Plus,
 } from 'lucide-react'
 
 /* ═══════════════════════════════════════════════════════════════
@@ -105,6 +110,9 @@ type AdminPage =
   | 'activity-logs'
   | 'notifications'
   | 'admins'
+  | 'replays'
+  | 'ads-manager'
+  | 'rtmp-config'
 
 interface MenuSection {
   label: string | null
@@ -124,6 +132,7 @@ const menuSections: MenuSection[] = [
       { id: 'videos', label: 'Videos', icon: Video },
       { id: 'highlights', label: 'Highlights', icon: Zap },
       { id: 'reports', label: 'Reports', icon: FileText, badge: '12' },
+      { id: 'replays', label: 'Replays', icon: Film, badge: 'VOD' },
     ],
   },
   {
@@ -133,6 +142,7 @@ const menuSections: MenuSection[] = [
       { id: 'schedules', label: 'Schedules', icon: CalendarClock },
       { id: 'comments', label: 'Comments', icon: MessageSquare },
       { id: 'banners', label: 'Banners', icon: ImageIcon },
+      { id: 'ads-manager', label: 'Ads Manager', icon: Megaphone, badge: 'AD' },
     ],
   },
   {
@@ -150,6 +160,7 @@ const menuSections: MenuSection[] = [
       { id: 'activity-logs', label: 'Activity Logs', icon: ClipboardList },
       { id: 'notifications', label: 'Notifications', icon: Bell },
       { id: 'admins', label: 'Admins', icon: ShieldCheck },
+      { id: 'rtmp-config', label: 'RTMP Config', icon: Radio, badge: 'RTMP' },
     ],
   },
 ]
@@ -1637,6 +1648,892 @@ function OnlineUsersPage() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   ADS MANAGER PAGE
+   ═══════════════════════════════════════════════════════════════ */
+
+interface AdItem {
+  id: string
+  title: string
+  type: string
+  mediaUrl: string
+  targetUrl: string
+  category: string
+  duration: number
+  position: string
+  priority: number
+  impressions: number
+  clicks: number
+  status: string
+  createdAt: string
+}
+
+interface AdAnalytics {
+  totalAds: number
+  activeAds: number
+  totalImpressions: number
+  totalClicks: number
+  ctr: number
+}
+
+function AdsManagerPage() {
+  const [ads, setAds] = useState<AdItem[]>([])
+  const [analytics, setAnalytics] = useState<AdAnalytics>({ totalAds: 0, activeAds: 0, totalImpressions: 0, totalClicks: 0, ctr: 0 })
+  const [loading, setLoading] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [form, setForm] = useState({
+    title: '',
+    type: 'banner',
+    mediaUrl: '',
+    targetUrl: '',
+    category: 'football',
+    duration: 30,
+    position: 'pre',
+    priority: 1,
+  })
+
+  const inputStyle: React.CSSProperties = {
+    background: 'rgba(255,255,255,0.03)',
+    borderColor: C.border,
+    borderRadius: 12,
+  }
+
+  const fetchAds = useCallback(async () => {
+    try {
+      const [adsRes, analyticsRes] = await Promise.all([
+        fetch('/api/ads'),
+        fetch('/api/ads/analytics'),
+      ])
+      if (adsRes.ok) {
+        const adsData = await adsRes.json()
+        setAds(Array.isArray(adsData) ? adsData : adsData.ads || [])
+      }
+      if (analyticsRes.ok) {
+        const analyticsData = await analyticsRes.json()
+        setAnalytics(analyticsData)
+      }
+    } catch {
+      // Use fallback data
+      setAnalytics({ totalAds: 0, activeAds: 0, totalImpressions: 0, totalClicks: 0, ctr: 0 })
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { fetchAds() }, [fetchAds])
+
+  const handleCreateAd = async () => {
+    if (!form.title) return
+    setCreating(true)
+    try {
+      const res = await fetch('/api/ads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      })
+      if (res.ok) {
+        setShowForm(false)
+        setForm({ title: '', type: 'banner', mediaUrl: '', targetUrl: '', category: 'football', duration: 30, position: 'pre', priority: 1 })
+        fetchAds()
+      }
+    } catch {
+      // ignore
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  const handleDeleteAd = async (id: string) => {
+    try {
+      await fetch(`/api/ads?id=${id}`, { method: 'DELETE' })
+      fetchAds()
+    } catch {
+      // ignore
+    }
+  }
+
+  const handleToggleStatus = async (ad: AdItem) => {
+    try {
+      await fetch('/api/ads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...ad, status: ad.status === 'active' ? 'inactive' : 'active' }),
+      })
+      fetchAds()
+    } catch {
+      // ignore
+    }
+  }
+
+  const handleUploadImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('type', 'ad')
+      const res = await fetch('/api/upload', { method: 'POST', body: formData })
+      if (res.ok) {
+        const data = await res.json()
+        setForm(prev => ({ ...prev, mediaUrl: data.url || data.fileUrl || '' }))
+      }
+    } catch {
+      // ignore
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const getCtr = (impressions: number, clicks: number) => {
+    if (impressions === 0) return '0.00'
+    return ((clicks / impressions) * 100).toFixed(2)
+  }
+
+  if (loading) {
+    return (
+      <div className="space-y-5 fade-in-up">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: `${C.warning}15` }}>
+            <Megaphone className="h-5 w-5 animate-pulse" style={{ color: C.warning }} />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-white">Ads Manager</h2>
+            <p className="text-xs" style={{ color: C.textTer }}>Loading ads data...</p>
+          </div>
+        </div>
+        <Card>
+          <div className="flex items-center justify-center py-16">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/10 border-t-[#f39c12]" />
+          </div>
+        </Card>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-5 fade-in-up">
+      {/* Page Header */}
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: `${C.warning}15` }}>
+          <Megaphone className="h-5 w-5" style={{ color: C.warning }} />
+        </div>
+        <div>
+          <h2 className="text-lg font-bold text-white">Ads Manager</h2>
+          <p className="text-xs" style={{ color: C.textTer }}>Manage advertisements and monetization</p>
+        </div>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        {[
+          { label: 'Total Ads', value: String(analytics.totalAds || ads.length), icon: Megaphone, color: C.warning },
+          { label: 'Active Ads', value: String(analytics.activeAds || ads.filter(a => a.status === 'active').length), icon: CheckCircle, color: C.success },
+          { label: 'Total Impressions', value: fmt(analytics.totalImpressions || ads.reduce((s, a) => s + (a.impressions || 0), 0)), icon: Eye, color: C.info },
+          { label: 'Total Clicks', value: fmt(analytics.totalClicks || ads.reduce((s, a) => s + (a.clicks || 0), 0)), icon: ArrowUpRight, color: C.purple },
+          { label: 'CTR', value: `${analytics.ctr || (analytics.totalClicks && analytics.totalImpressions ? ((analytics.totalClicks / analytics.totalImpressions) * 100).toFixed(2) : getCtr(ads.reduce((s, a) => s + (a.impressions || 0), 0), ads.reduce((s, a) => s + (a.clicks || 0), 0)))}%`, icon: TrendingUp, color: C.accent },
+        ].map((s) => {
+          const Icon = s.icon
+          return (
+            <Card key={s.label}>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: C.textDim }}>{s.label}</span>
+                <Icon className="h-4 w-4" style={{ color: s.color }} />
+              </div>
+              <p className="text-xl font-bold text-white">{s.value}</p>
+            </Card>
+          )
+        })}
+      </div>
+
+      {/* Action Bar */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex-1 max-w-sm">
+          <div className="flex items-center gap-2 rounded-xl border px-3 py-2" style={{ borderColor: C.border, background: 'rgba(255,255,255,0.02)' }}>
+            <Search className="h-4 w-4" style={{ color: C.textDim }} />
+            <input type="text" placeholder="Search ads..." className="flex-1 bg-transparent text-sm text-white placeholder:text-white/20 focus:outline-none" />
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={fetchAds}
+            className="flex items-center gap-1.5 rounded-xl border px-3 py-2 text-[12px] font-medium transition-all hover:bg-white/[0.03]"
+            style={{ borderColor: C.border, color: C.textSec }}
+          >
+            <RefreshCw className="h-3.5 w-3.5" /> Refresh
+          </button>
+          <button
+            onClick={() => setShowForm(!showForm)}
+            className="flex items-center gap-1.5 rounded-xl px-4 py-2 text-[12px] font-semibold text-white transition-all hover:opacity-90"
+            style={{ background: C.warning }}
+          >
+            <Plus className="h-3.5 w-3.5" /> Create Ad
+          </button>
+        </div>
+      </div>
+
+      {/* Create Ad Form */}
+      {showForm && (
+        <Card>
+          <CardHeader title="Create New Ad">
+            <button onClick={() => setShowForm(false)} className="rounded-lg p-1 transition-colors hover:bg-white/[0.05]">
+              <X className="h-4 w-4" style={{ color: C.textTer }} />
+            </button>
+          </CardHeader>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-[11px] font-medium mb-1.5" style={{ color: C.textTer }}>Title *</label>
+              <input
+                type="text"
+                value={form.title}
+                onChange={(e) => setForm(prev => ({ ...prev, title: e.target.value }))}
+                className="w-full border px-3 py-2.5 text-sm text-white bg-transparent focus:outline-none focus:border-white/20"
+                style={inputStyle}
+                placeholder="Ad title..."
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-medium mb-1.5" style={{ color: C.textTer }}>Type</label>
+              <select
+                value={form.type}
+                onChange={(e) => setForm(prev => ({ ...prev, type: e.target.value }))}
+                className="w-full border px-3 py-2.5 text-sm text-white bg-transparent focus:outline-none"
+                style={{ ...inputStyle, background: '#1e1e1e' }}
+              >
+                <option value="banner" style={{ background: '#1e1e1e' }}>Banner</option>
+                <option value="pre-roll" style={{ background: '#1e1e1e' }}>Pre-Roll</option>
+                <option value="mid-roll" style={{ background: '#1e1e1e' }}>Mid-Roll</option>
+                <option value="overlay" style={{ background: '#1e1e1e' }}>Overlay</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-[11px] font-medium mb-1.5" style={{ color: C.textTer }}>Category</label>
+              <select
+                value={form.category}
+                onChange={(e) => setForm(prev => ({ ...prev, category: e.target.value }))}
+                className="w-full border px-3 py-2.5 text-sm text-white bg-transparent focus:outline-none"
+                style={{ ...inputStyle, background: '#1e1e1e' }}
+              >
+                <option value="football" style={{ background: '#1e1e1e' }}>Football</option>
+                <option value="basketball" style={{ background: '#1e1e1e' }}>Basketball</option>
+                <option value="racing" style={{ background: '#1e1e1e' }}>Racing</option>
+                <option value="tennis" style={{ background: '#1e1e1e' }}>Tennis</option>
+                <option value="cricket" style={{ background: '#1e1e1e' }}>Cricket</option>
+                <option value="mma" style={{ background: '#1e1e1e' }}>MMA</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-[11px] font-medium mb-1.5" style={{ color: C.textTer }}>Target URL</label>
+              <input
+                type="text"
+                value={form.targetUrl}
+                onChange={(e) => setForm(prev => ({ ...prev, targetUrl: e.target.value }))}
+                className="w-full border px-3 py-2.5 text-sm text-white bg-transparent focus:outline-none focus:border-white/20"
+                style={inputStyle}
+                placeholder="https://..."
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-medium mb-1.5" style={{ color: C.textTer }}>Duration (seconds)</label>
+              <input
+                type="number"
+                value={form.duration}
+                onChange={(e) => setForm(prev => ({ ...prev, duration: Number(e.target.value) }))}
+                className="w-full border px-3 py-2.5 text-sm text-white bg-transparent focus:outline-none focus:border-white/20"
+                style={inputStyle}
+                min={1}
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-medium mb-1.5" style={{ color: C.textTer }}>Position</label>
+              <select
+                value={form.position}
+                onChange={(e) => setForm(prev => ({ ...prev, position: e.target.value }))}
+                className="w-full border px-3 py-2.5 text-sm text-white bg-transparent focus:outline-none"
+                style={{ ...inputStyle, background: '#1e1e1e' }}
+              >
+                <option value="pre" style={{ background: '#1e1e1e' }}>Pre</option>
+                <option value="mid" style={{ background: '#1e1e1e' }}>Mid</option>
+                <option value="post" style={{ background: '#1e1e1e' }}>Post</option>
+                <option value="overlay" style={{ background: '#1e1e1e' }}>Overlay</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Image Upload */}
+          <div className="mt-4">
+            <label className="block text-[11px] font-medium mb-1.5" style={{ color: C.textTer }}>Media (Upload Image)</label>
+            {form.mediaUrl ? (
+              <div className="flex items-center gap-3 rounded-xl border p-3" style={{ borderColor: C.border, background: 'rgba(255,255,255,0.02)' }}>
+                <div className="h-12 w-20 rounded-lg overflow-hidden flex-shrink-0" style={{ background: C.sidebar }}>
+                  <img src={form.mediaUrl} alt="Ad preview" className="h-full w-full object-cover" />
+                </div>
+                <span className="text-xs text-white truncate flex-1">{form.mediaUrl}</span>
+                <button onClick={() => setForm(prev => ({ ...prev, mediaUrl: '' }))} className="rounded-lg p-1.5 transition-colors hover:bg-white/[0.05]" style={{ color: C.accent }}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ) : (
+              <label className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-4 transition-colors hover:border-white/10 cursor-pointer" style={{ borderColor: C.border, background: 'rgba(255,255,255,0.01)' }}>
+                {uploading ? (
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-white/10 border-t-[#f39c12]" />
+                ) : (
+                  <>
+                    <CloudUpload className="h-6 w-6 mb-1" style={{ color: C.textDim }} />
+                    <p className="text-[11px] font-medium text-white">Click to upload ad image</p>
+                    <p className="text-[10px]" style={{ color: C.textDim }}>JPG, PNG up to 5MB</p>
+                  </>
+                )}
+                <input type="file" accept="image/*" onChange={handleUploadImage} className="hidden" />
+              </label>
+            )}
+          </div>
+
+          {/* Submit */}
+          <div className="flex justify-end gap-2 mt-4">
+            <button onClick={() => setShowForm(false)} className="rounded-xl border px-4 py-2 text-[12px] font-medium transition-colors hover:bg-white/[0.05]" style={{ borderColor: C.border, color: C.textSec }}>
+              Cancel
+            </button>
+            <button onClick={handleCreateAd} disabled={creating || !form.title} className="flex items-center gap-1.5 rounded-xl px-4 py-2 text-[12px] font-semibold text-white transition-all hover:opacity-90 disabled:opacity-50" style={{ background: C.warning }}>
+              {creating ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+              {creating ? 'Creating...' : 'Create Ad'}
+            </button>
+          </div>
+        </Card>
+      )}
+
+      {/* Ads Table */}
+      <Card className="!p-0 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b" style={{ borderColor: C.border, background: 'rgba(255,255,255,0.02)' }}>
+                {['Title', 'Type', 'Category', 'Impressions', 'Clicks', 'CTR', 'Status', 'Actions'].map((h) => (
+                  <th key={h} className="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textDim }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {ads.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="px-5 py-12 text-center">
+                    <Megaphone className="h-8 w-8 mx-auto mb-2" style={{ color: C.textDim }} />
+                    <p className="text-sm" style={{ color: C.textTer }}>No ads created yet</p>
+                    <p className="text-[11px] mt-1" style={{ color: C.textDim }}>Click "Create Ad" to get started</p>
+                  </td>
+                </tr>
+              )}
+              {ads.map((ad) => (
+                <tr key={ad.id} className="border-b transition-colors hover:bg-white/[0.02]" style={{ borderColor: C.border }}>
+                  <td className="px-5 py-3">
+                    <div className="flex items-center gap-2">
+                      {ad.mediaUrl && (
+                        <div className="h-8 w-12 rounded-md overflow-hidden flex-shrink-0" style={{ background: C.sidebar }}>
+                          <img src={ad.mediaUrl} alt="" className="h-full w-full object-cover" />
+                        </div>
+                      )}
+                      <span className="text-[12px] font-medium text-white truncate max-w-[120px]">{ad.title}</span>
+                    </div>
+                  </td>
+                  <td className="px-5 py-3">
+                    <StatusBadge text={ad.type} color={ad.type === 'banner' ? C.info : ad.type === 'pre-roll' ? C.accent : ad.type === 'mid-roll' ? C.warning : C.purple} />
+                  </td>
+                  <td className="px-5 py-3 text-[11px] capitalize" style={{ color: C.textSec }}>{ad.category}</td>
+                  <td className="px-5 py-3 text-[12px]" style={{ color: C.textSec }}>{fmt(ad.impressions || 0)}</td>
+                  <td className="px-5 py-3 text-[12px]" style={{ color: C.textSec }}>{fmt(ad.clicks || 0)}</td>
+                  <td className="px-5 py-3 text-[12px] font-semibold" style={{ color: C.success }}>{getCtr(ad.impressions || 0, ad.clicks || 0)}%</td>
+                  <td className="px-5 py-3">
+                    <button
+                      onClick={() => handleToggleStatus(ad)}
+                      className={`relative h-6 w-11 rounded-full transition-colors cursor-pointer`}
+                      style={{ background: ad.status === 'active' ? C.success : 'rgba(255,255,255,0.08)' }}
+                    >
+                      <span className="absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform" style={{ transform: ad.status === 'active' ? 'translateX(22px)' : 'translateX(2px)' }} />
+                    </button>
+                  </td>
+                  <td className="px-5 py-3">
+                    <div className="flex items-center gap-1">
+                      <button className="rounded-lg p-1.5 transition-colors hover:bg-white/[0.05]" style={{ color: C.textTer }} title="Edit">
+                        <Copy className="h-3.5 w-3.5" />
+                      </button>
+                      <button onClick={() => handleDeleteAd(ad.id)} className="rounded-lg p-1.5 transition-colors hover:bg-white/[0.05]" style={{ color: C.accent }} title="Delete">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </div>
+  )
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   REPLAYS MANAGER PAGE
+   ═══════════════════════════════════════════════════════════════ */
+
+interface Recording {
+  id: string
+  title: string
+  streamTitle: string
+  duration: number
+  status: 'ready' | 'processing' | 'failed'
+  views: number
+  createdAt: string
+}
+
+function ReplaysManagerPage() {
+  const [recordings, setRecordings] = useState<Recording[]>([])
+  const [loading, setLoading] = useState(true)
+  const [statusFilter, setStatusFilter] = useState<'all' | 'ready' | 'processing' | 'failed'>('all')
+
+  const fetchRecordings = useCallback(async () => {
+    try {
+      const res = await fetch('/api/recordings')
+      if (res.ok) {
+        const data = await res.json()
+        setRecordings(Array.isArray(data) ? data : data.recordings || [])
+      }
+    } catch {
+      // ignore
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { fetchRecordings() }, [fetchRecordings])
+
+  const handleDelete = async (id: string) => {
+    try {
+      await fetch(`/api/recordings/${id}`, { method: 'DELETE' })
+      fetchRecordings()
+    } catch {
+      // ignore
+    }
+  }
+
+  const filtered = statusFilter === 'all' ? recordings : recordings.filter(r => r.status === statusFilter)
+  const stats = {
+    total: recordings.length,
+    ready: recordings.filter(r => r.status === 'ready').length,
+    processing: recordings.filter(r => r.status === 'processing').length,
+    failed: recordings.filter(r => r.status === 'failed').length,
+  }
+
+  function formatDurationSec(sec: number): string {
+    const h = Math.floor(sec / 3600)
+    const m = Math.floor((sec % 3600) / 60)
+    const s = sec % 60
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+  }
+
+  if (loading) {
+    return (
+      <div className="space-y-5 fade-in-up">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: `${C.info}15` }}>
+            <Film className="h-5 w-5 animate-pulse" style={{ color: C.info }} />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-white">Replays</h2>
+            <p className="text-xs" style={{ color: C.textTer }}>Loading recordings...</p>
+          </div>
+        </div>
+        <Card>
+          <div className="flex items-center justify-center py-16">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/10 border-t-[#3498db]" />
+          </div>
+        </Card>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-5 fade-in-up">
+      {/* Page Header */}
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: `${C.info}15` }}>
+          <Film className="h-5 w-5" style={{ color: C.info }} />
+        </div>
+        <div>
+          <h2 className="text-lg font-bold text-white">Replays</h2>
+          <p className="text-xs" style={{ color: C.textTer }}>Manage stream recordings and VOD content</p>
+        </div>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          { label: 'Total Recordings', value: String(stats.total), icon: Film, color: C.info },
+          { label: 'Ready', value: String(stats.ready), icon: CheckCircle, color: C.success },
+          { label: 'Processing', value: String(stats.processing), icon: Clock, color: C.warning },
+          { label: 'Failed', value: String(stats.failed), icon: XCircle, color: C.accent },
+        ].map((s) => {
+          const Icon = s.icon
+          return (
+            <Card key={s.label}>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: C.textDim }}>{s.label}</span>
+                <Icon className="h-4 w-4" style={{ color: s.color }} />
+              </div>
+              <p className="text-xl font-bold text-white">{s.value}</p>
+            </Card>
+          )
+        })}
+      </div>
+
+      {/* Filter Bar */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex gap-2">
+          {(['all', 'ready', 'processing', 'failed'] as const).map((f) => (
+            <button
+              key={f}
+              onClick={() => setStatusFilter(f)}
+              className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-[12px] font-medium border transition-all capitalize"
+              style={{
+                borderColor: statusFilter === f ? `${C.info}40` : C.border,
+                background: statusFilter === f ? `${C.info}10` : 'transparent',
+                color: statusFilter === f ? C.info : C.textTer,
+              }}
+            >
+              {f}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={fetchRecordings}
+          className="flex items-center gap-1.5 rounded-xl border px-3 py-2 text-[12px] font-medium transition-all hover:bg-white/[0.03]"
+          style={{ borderColor: C.border, color: C.textSec }}
+        >
+          <RefreshCw className="h-3.5 w-3.5" /> Refresh
+        </button>
+      </div>
+
+      {/* Recordings Table */}
+      <Card className="!p-0 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b" style={{ borderColor: C.border, background: 'rgba(255,255,255,0.02)' }}>
+                {['Title', 'Stream', 'Duration', 'Status', 'Views', 'Created', 'Actions'].map((h) => (
+                  <th key={h} className="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textDim }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="px-5 py-12 text-center">
+                    <Film className="h-8 w-8 mx-auto mb-2" style={{ color: C.textDim }} />
+                    <p className="text-sm" style={{ color: C.textTer }}>No recordings found</p>
+                  </td>
+                </tr>
+              )}
+              {filtered.map((rec) => (
+                <tr key={rec.id} className="border-b transition-colors hover:bg-white/[0.02]" style={{ borderColor: C.border }}>
+                  <td className="px-5 py-3">
+                    <div className="flex items-center gap-2">
+                      <Play className="h-3.5 w-3.5 flex-shrink-0" style={{ color: C.info }} />
+                      <span className="text-[12px] font-medium text-white truncate max-w-[150px]">{rec.title}</span>
+                    </div>
+                  </td>
+                  <td className="px-5 py-3 text-[11px] truncate max-w-[120px]" style={{ color: C.textSec }}>{rec.streamTitle}</td>
+                  <td className="px-5 py-3 text-[11px] font-mono" style={{ color: C.textTer }}>{formatDurationSec(rec.duration || 0)}</td>
+                  <td className="px-5 py-3">
+                    <StatusBadge
+                      text={rec.status}
+                      color={rec.status === 'ready' ? C.success : rec.status === 'processing' ? C.warning : C.accent}
+                    />
+                  </td>
+                  <td className="px-5 py-3 text-[12px]" style={{ color: C.textSec }}>{fmt(rec.views || 0)}</td>
+                  <td className="px-5 py-3 text-[11px]" style={{ color: C.textTer }}>
+                    {rec.createdAt ? new Date(rec.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                  </td>
+                  <td className="px-5 py-3">
+                    <button onClick={() => handleDelete(rec.id)} className="rounded-lg p-1.5 transition-colors hover:bg-white/[0.05]" style={{ color: C.accent }} title="Delete">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="flex items-center justify-between px-5 py-3 border-t" style={{ borderColor: C.border }}>
+          <span className="text-[11px]" style={{ color: C.textTer }}>
+            Showing {filtered.length} of {recordings.length} recordings
+          </span>
+        </div>
+      </Card>
+    </div>
+  )
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RTMP CONFIG PAGE
+   ═══════════════════════════════════════════════════════════════ */
+
+function RTMPConfigPage() {
+  const [streamKey] = useState(() => {
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
+    let result = 'sk-'
+    for (let i = 0; i < 24; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length))
+    }
+    return result
+  })
+  const [copiedField, setCopiedField] = useState<string | null>(null)
+  const [connectionStatus, setConnectionStatus] = useState<'unknown' | 'connected' | 'disconnected'>('unknown')
+  const [testing, setTesting] = useState(false)
+  const [autoRecord, setAutoRecord] = useState(false)
+  const [showKey, setShowKey] = useState(false)
+
+  const rtmpUrl = 'rtmp://localhost:1935/live'
+  const hlsUrl = `http://localhost:8000/live/${streamKey}.m3u8`
+
+  const testConnection = async () => {
+    setTesting(true)
+    try {
+      const res = await fetch('http://localhost:8001/health')
+      if (res.ok) {
+        setConnectionStatus('connected')
+      } else {
+        setConnectionStatus('disconnected')
+      }
+    } catch {
+      setConnectionStatus('disconnected')
+    } finally {
+      setTesting(false)
+    }
+  }
+
+  // Auto-test on mount
+  useEffect(() => {
+    testConnection()
+  }, [])
+
+  const handleCopy = (text: string, field: string) => {
+    navigator.clipboard.writeText(text)
+    setCopiedField(field)
+    setTimeout(() => setCopiedField(null), 2000)
+  }
+
+  const inputStyle: React.CSSProperties = {
+    background: 'rgba(255,255,255,0.03)',
+    borderColor: C.border,
+    borderRadius: 12,
+  }
+
+  return (
+    <div className="space-y-5 fade-in-up">
+      {/* Page Header */}
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: `${C.purple}15` }}>
+          <Radio className="h-5 w-5" style={{ color: C.purple }} />
+        </div>
+        <div>
+          <h2 className="text-lg font-bold text-white">RTMP Configuration</h2>
+          <p className="text-xs" style={{ color: C.textTer }}>OBS streaming server setup and configuration</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Left Column - Config */}
+        <div className="space-y-4">
+          {/* Connection Status */}
+          <Card>
+            <CardHeader title="Connection Status">
+              <button onClick={testConnection} disabled={testing} className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-medium border transition-colors hover:bg-white/[0.04]" style={{ borderColor: C.border, color: C.textSec }}>
+                {testing ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Wifi className="h-3 w-3" />}
+                {testing ? 'Testing...' : 'Test Connection'}
+              </button>
+            </CardHeader>
+            <div className="flex items-center gap-4 py-3">
+              <div className="relative flex items-center justify-center">
+                <span className={`absolute h-14 w-14 rounded-full ${connectionStatus === 'connected' ? 'animate-ping' : ''}`} style={{ background: `${connectionStatus === 'connected' ? C.success : connectionStatus === 'disconnected' ? C.accent : C.textDim}20` }} />
+                <span className="relative flex h-14 w-14 items-center justify-center rounded-full" style={{ background: `${connectionStatus === 'connected' ? C.success : connectionStatus === 'disconnected' ? C.accent : C.textDim}20` }}>
+                  {connectionStatus === 'connected' ? (
+                    <CheckCircle className="h-7 w-7" style={{ color: C.success }} />
+                  ) : connectionStatus === 'disconnected' ? (
+                    <XCircle className="h-7 w-7" style={{ color: C.accent }} />
+                  ) : (
+                    <Server className="h-7 w-7" style={{ color: C.textDim }} />
+                  )}
+                </span>
+              </div>
+              <div>
+                <p className="text-sm font-bold" style={{ color: connectionStatus === 'connected' ? C.success : connectionStatus === 'disconnected' ? C.accent : C.textTer }}>
+                  {connectionStatus === 'connected' ? 'Connected' : connectionStatus === 'disconnected' ? 'Disconnected' : 'Checking...'}
+                </p>
+                <p className="text-[11px] mt-0.5" style={{ color: C.textTer }}>
+                  {connectionStatus === 'connected' ? 'RTMP server is reachable and healthy' : connectionStatus === 'disconnected' ? 'Could not reach the RTMP server' : 'Testing server connection...'}
+                </p>
+              </div>
+            </div>
+          </Card>
+
+          {/* Server Configuration */}
+          <Card>
+            <CardHeader title="Server Configuration" />
+            <div className="space-y-4">
+              {/* Server URL */}
+              <div>
+                <label className="block text-[11px] font-medium mb-1.5" style={{ color: C.textTer }}>Server URL</label>
+                <div className="flex items-center gap-2">
+                  <input type="text" readOnly value={rtmpUrl} className="flex-1 border px-3 py-2.5 text-sm text-white bg-transparent focus:outline-none" style={inputStyle} />
+                  <button onClick={() => handleCopy(rtmpUrl, 'url')} className="flex h-10 w-10 items-center justify-center rounded-xl border transition-colors hover:bg-white/[0.05]" style={{ borderColor: C.border }}>
+                    {copiedField === 'url' ? <Check className="h-4 w-4" style={{ color: C.success }} /> : <Copy className="h-4 w-4" style={{ color: C.textTer }} />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Stream Key */}
+              <div>
+                <label className="block text-[11px] font-medium mb-1.5" style={{ color: C.textTer }}>Stream Key (Auto-Generated)</label>
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <input type={showKey ? 'text' : 'password'} readOnly value={streamKey} className="w-full border px-3 py-2.5 pr-10 text-sm text-white bg-transparent focus:outline-none" style={inputStyle} />
+                    <button onClick={() => setShowKey(!showKey)} className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 transition-colors hover:bg-white/[0.05] rounded">
+                      <Eye className="h-4 w-4" style={{ color: C.textTer }} />
+                    </button>
+                  </div>
+                  <button onClick={() => handleCopy(streamKey, 'key')} className="flex h-10 w-10 items-center justify-center rounded-xl border transition-colors hover:bg-white/[0.05]" style={{ borderColor: C.border }}>
+                    {copiedField === 'key' ? <Check className="h-4 w-4" style={{ color: C.success }} /> : <Copy className="h-4 w-4" style={{ color: C.textTer }} />}
+                  </button>
+                </div>
+              </div>
+
+              {/* HLS URL */}
+              <div>
+                <label className="block text-[11px] font-medium mb-1.5" style={{ color: C.textTer }}>HLS Playback URL</label>
+                <div className="flex items-center gap-2">
+                  <input type="text" readOnly value={hlsUrl} className="flex-1 border px-3 py-2.5 text-sm text-white bg-transparent focus:outline-none" style={inputStyle} />
+                  <button onClick={() => handleCopy(hlsUrl, 'hls')} className="flex h-10 w-10 items-center justify-center rounded-xl border transition-colors hover:bg-white/[0.05]" style={{ borderColor: C.border }}>
+                    {copiedField === 'hls' ? <Check className="h-4 w-4" style={{ color: C.success }} /> : <Copy className="h-4 w-4" style={{ color: C.textTer }} />}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          {/* Auto Record Toggle */}
+          <Card>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ background: `${C.accent}15` }}>
+                  <Film className="h-4 w-4" style={{ color: C.accent }} />
+                </div>
+                <div>
+                  <p className="text-[13px] font-medium text-white">Auto-Record Streams</p>
+                  <p className="text-[11px]" style={{ color: C.textTer }}>Automatically save live streams as recordings</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setAutoRecord(!autoRecord)}
+                className="relative h-6 w-11 rounded-full transition-colors cursor-pointer"
+                style={{ background: autoRecord ? C.success : 'rgba(255,255,255,0.08)' }}
+              >
+                <span className="absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform" style={{ transform: autoRecord ? 'translateX(22px)' : 'translateX(2px)' }} />
+              </button>
+            </div>
+          </Card>
+        </div>
+
+        {/* Right Column - OBS Setup */}
+        <div className="space-y-4">
+          {/* OBS Setup Instructions */}
+          <Card>
+            <CardHeader title="OBS Setup Instructions">
+              <StatusBadge text={connectionStatus === 'connected' ? 'Ready' : 'Not Ready'} color={connectionStatus === 'connected' ? C.success : C.warning} />
+            </CardHeader>
+            <div className="rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${C.border}` }}>
+              <div className="flex items-center gap-2 mb-4">
+                <Monitor className="h-4 w-4" style={{ color: C.info }} />
+                <span className="text-xs font-semibold text-white">Step-by-step OBS Configuration</span>
+              </div>
+              <ol className="space-y-3">
+                {[
+                  { step: 1, text: 'Open OBS Studio' },
+                  { step: 2, text: 'Go to Settings > Stream' },
+                  { step: 3, text: 'Service: Select "Custom"' },
+                  { step: 4, text: `Server: ${rtmpUrl}` },
+                  { step: 5, text: `Stream Key: ${streamKey}` },
+                  { step: 6, text: 'Click "Start Streaming"' },
+                ].map((item) => (
+                  <li key={item.step} className="flex items-start gap-3">
+                    <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white mt-0.5" style={{ background: `${C.accent}30` }}>
+                      {item.step}
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-[12px]" style={{ color: C.textSec }}>{item.text}</p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+
+              <div className="flex items-center gap-3 mt-5 pt-4" style={{ borderTop: `1px solid ${C.border}` }}>
+                <button
+                  onClick={() => { handleCopy(rtmpUrl, 'url'); handleCopy(streamKey, 'key') }}
+                  className="flex items-center gap-1.5 rounded-xl px-4 py-2 text-[11px] font-medium transition-colors hover:bg-white/[0.05] border"
+                  style={{ borderColor: C.border, color: C.textSec }}
+                >
+                  <Copy className="h-3.5 w-3.5" /> Copy All Config
+                </button>
+                <span className="text-[10px]" style={{ color: C.textDim }}>
+                  {connectionStatus === 'connected' ? (
+                    <span className="flex items-center gap-1"><CheckCircle className="h-3 w-3" style={{ color: C.success }} /> Server is ready</span>
+                  ) : (
+                    <span className="flex items-center gap-1"><XCircle className="h-3 w-3" style={{ color: C.accent }} /> Server is not reachable</span>
+                  )}
+                </span>
+              </div>
+            </div>
+          </Card>
+
+          {/* Quick Info Cards */}
+          <Card>
+            <CardHeader title="Stream URLs Summary" />
+            <div className="space-y-3">
+              {[
+                { label: 'RTMP Server', value: rtmpUrl, color: C.purple },
+                { label: 'HLS Stream', value: hlsUrl, color: C.info },
+                { label: 'API Health', value: 'http://localhost:8001/health', color: C.success },
+              ].map((item) => (
+                <div key={item.label} className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${C.border}` }}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: C.textDim }}>{item.label}</span>
+                    <span className="h-2 w-2 rounded-full" style={{ background: item.color }} />
+                  </div>
+                  <p className="text-[11px] font-mono break-all" style={{ color: C.textSec }}>{item.value}</p>
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          {/* Important Notice */}
+          <Card style={{ borderColor: `${C.warning}30` }}>
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 flex-shrink-0 mt-0.5" style={{ color: C.warning }} />
+              <div>
+                <p className="text-[13px] font-semibold text-white">Important Notice</p>
+                <p className="text-[11px] mt-1 leading-relaxed" style={{ color: C.textTer }}>
+                  Keep your stream key secret. Do not share it publicly. If compromised, regenerate a new key immediately.
+                  The RTMP server must be running and accessible for streaming to work properly.
+                </p>
+              </div>
+            </div>
+          </Card>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ═══════════════════════════════════════════════════════════════
    PAGE ROUTER
    ═══════════════════════════════════════════════════════════════ */
 
@@ -1658,6 +2555,9 @@ function renderPage(page: AdminPage): React.ReactNode {
   if (page === 'activity-logs') return <GenericPage title="Activity Logs" subtitle="System activity" icon={<ClipboardList className="h-5 w-5" style={{ color: C.textSec }} />} accent={C.textSec} />
   if (page === 'notifications') return <GenericPage title="Notifications" subtitle="Notification management" icon={<Bell className="h-5 w-5" style={{ color: C.warning }} />} accent={C.warning} />
   if (page === 'admins') return <GenericPage title="Admins" subtitle="Admin team management" icon={<ShieldCheck className="h-5 w-5" style={{ color: C.info }} />} accent={C.info} />
+  if (page === 'replays') return <ReplaysManagerPage />
+  if (page === 'ads-manager') return <AdsManagerPage />
+  if (page === 'rtmp-config') return <RTMPConfigPage />
   return null
 }
 

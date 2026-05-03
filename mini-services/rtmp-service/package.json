@@ -1,0 +1,11 @@
+{
+  "name": "rtmp-service",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "node index.js",
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "node-media-server": "^2.7.0"
+  }
+}
