@@ -341,8 +341,7 @@ export default function VideosPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [deleteTarget, setDeleteTarget] = useState<VideoItem | null>(null)
   const [perPage, setPerPage] = useState(12)
-  const fileInputRef = useState<HTMLInputElement | null>(null)[0] as any
-  const inputRef = useCallback((node: HTMLInputElement | null) => { (fileInputRef as any) = node }, [])
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   /* Fetch videos from API */
   const fetchVideos = useCallback(async () => {
@@ -410,8 +409,8 @@ export default function VideosPage() {
     setDeleteTarget(null)
   }, [deleteTarget])
   const handleUpload = useCallback(() => {
-    fileInputRef?.click()
-  }, [fileInputRef])
+    fileInputRef.current?.click()
+  }, [])
 
   /* Loading state */
   if (loading) {
@@ -466,7 +465,7 @@ export default function VideosPage() {
         >
           <CloudUpload className="h-4 w-4" /> Upload Video
         </button>
-        <input ref={inputRef} type="file" accept="video/*" className="hidden" />
+        <input ref={fileInputRef} type="file" accept="video/*" className="hidden" />
       </motion.div>
 
       {/* ═══ Stats Bar ═══ */}
