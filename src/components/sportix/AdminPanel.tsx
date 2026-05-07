@@ -82,6 +82,7 @@ import {
 import VideoAdsManager from './VideoAdsManager'
 import VideosPage from './VideosPage'
 import HeroFooterAdsManager from './HeroFooterAdsManager'
+import AdsManagerUI from './AdsManagerUI'
 
 /* ═══════════════════════════════════════════════════════════════
    DESIGN SYSTEM
@@ -7234,7 +7235,7 @@ function renderPage(page: AdminPage): React.ReactNode {
   if (page === 'notifications') return <GenericPage title="Notifications" subtitle="Notification management" icon={<Bell className="h-5 w-5" style={{ color: C.warning }} />} accent={C.warning} />
   if (page === 'admins') return <GenericPage title="Admins" subtitle="Admin team management" icon={<ShieldCheck className="h-5 w-5" style={{ color: C.info }} />} accent={C.info} />
   if (page === 'replays') return <ReplaysManagerPage />
-  if (page === 'ads-manager') return <AdsManagerPage />
+  if (page === 'ads-manager') return <AdsManagerUI />
   if (page === 'create-ad') return <CreateNewAdSection />
   if (page === 'hero-ads') return <HeroFooterAdsManager />
   if (page === 'video-ads') return <VideoAdsManager />
