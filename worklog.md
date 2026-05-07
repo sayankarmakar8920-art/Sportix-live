@@ -252,3 +252,28 @@ Stage Summary:
 - PC/Laptop (1024px+): Same full sidebar experience
 - Mobile (<768px): Sidebar uses hamburger menu with overlay
 - All changes verified with bun run lint - no errors
+
+---
+Task ID: 2
+Agent: Main Agent
+Task: Add Create Ads section to Ads Manager + rename Highlights to Video Upload
+
+Work Log:
+- Analyzed screenshot using VLM - detailed Create New Ad UI with two-column layout
+- Changed "Highlights" to "Video Upload" in sidebar menu (AdminPanel.tsx line 137)
+- Changed page title from "Highlights" to "Video Upload" (line 3200)
+- Added comprehensive CreateNewAdSection component (~530 lines) at bottom of AdsManagerPage
+- Added missing imports: Smartphone, Tablet icons
+- Create Ads section includes:
+  - Header bar with Preview/Cancel/Save Ad buttons
+  - Left column (AD DETAILS): Title, Type, Placement dropdowns, Media upload, Media URL, Redirect URL, VAST Tag
+  - Right column (TARGETING & SETTINGS): Device toggles (Desktop/Mobile/Tablet), Country, Category, Date pickers, CPM/CPC sliders, A/B Test
+  - Bottom row: AD PREVIEW (toggle preview) + ESTIMATED SUMMARY (impressions/clicks/revenue)
+- Purple section headers matching screenshot
+- Green accent for active states, sliders, upload buttons
+- All responsive with lg:grid-cols-2 breakpoints
+
+Stage Summary:
+- Create Ads form fully functional with all fields from screenshot
+- Sidebar "Highlights" renamed to "Video Upload"
+- Zero lint errors, dev server compiling successfully

@@ -65,6 +65,8 @@ import {
   Share2,
   Bookmark,
   MousePointer,
+  Smartphone,
+  Tablet,
 } from 'lucide-react'
 
 /* ═══════════════════════════════════════════════════════════════
@@ -134,7 +136,7 @@ const menuSections: MenuSection[] = [
       { id: 'live-monitor', label: 'Live Monitor', icon: Activity },
       { id: 'users', label: 'Online Users', icon: Users, badge: 'TRACK' },
       { id: 'videos', label: 'Videos', icon: Video },
-      { id: 'highlights', label: 'Highlights', icon: Zap },
+      { id: 'highlights', label: 'Video Upload', icon: Zap },
       { id: 'reports', label: 'Reports', icon: FileText, badge: '12' },
       { id: 'replays', label: 'Replays', icon: Film, badge: 'VOD' },
     ],
@@ -2718,6 +2720,545 @@ function AdsManagerPage() {
           </table>
         </div>
       </Card>
+
+      {/* ═══════════════════════════════════════════════════════════
+          CREATE NEW AD — Full Section matching reference UI
+          ═══════════════════════════════════════════════════════════ */}
+      <CreateNewAdSection />
+    </div>
+  )
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CREATE NEW AD SECTION COMPONENT
+   ═══════════════════════════════════════════════════════════════ */
+
+function CreateNewAdSection() {
+  const [showPreview, setShowPreview] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [form, setForm] = useState({
+    title: 'Summer Sale 2024',
+    type: 'banner',
+    placement: 'homepage',
+    mediaUrl: 'https://yourdomain.com/ads/summer-sale-banner.jpg',
+    redirectUrl: 'https://yoursite.com/summer-sale',
+    vastTag: '<script async src="https://youradnetwork.com/tag.js"></script>\n<!-- or VAST XML -->',
+    devices: { desktop: true, mobile: false, tablet: false },
+    countries: 'IN, US, GB',
+    category: '',
+    startDate: '2026-05-03',
+    endDate: '',
+    cpm: 100,
+    cpc: 2,
+    abGroup: '',
+  })
+
+  const inputStyle: React.CSSProperties = {
+    background: 'rgba(255,255,255,0.03)',
+    borderColor: C.border,
+    borderRadius: 12,
+  }
+
+  const sectionHeaderStyle: React.CSSProperties = {
+    background: `linear-gradient(135deg, ${C.purple}20, ${C.purple}08)`,
+    border: `1px solid ${C.purple}25`,
+    borderRadius: 12,
+  }
+
+  const handleCreate = async () => {
+    if (!form.title) return
+    setCreating(true)
+    try {
+      const res = await fetch('/api/ads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: form.title,
+          type: form.type,
+          mediaUrl: form.mediaUrl,
+          targetUrl: form.redirectUrl,
+          category: form.category || 'football',
+          duration: 30,
+          position: 'pre',
+          priority: 1,
+        }),
+      })
+      if (res.ok) {
+        setForm({
+          title: '', type: 'banner', placement: 'homepage', mediaUrl: '', redirectUrl: '',
+          vastTag: '', devices: { desktop: true, mobile: false, tablet: false },
+          countries: '', category: '', startDate: '', endDate: '', cpm: 100, cpc: 2, abGroup: '',
+        })
+      }
+    } catch { /* ignore */ }
+    finally { setCreating(false) }
+  }
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('type', 'ad')
+      const res = await fetch('/api/upload', { method: 'POST', body: formData })
+      if (res.ok) {
+        const data = await res.json()
+        setForm(prev => ({ ...prev, mediaUrl: data.url || data.fileUrl || '' }))
+      }
+    } catch { /* ignore */ }
+    finally { setUploading(false) }
+  }
+
+  // Estimated calculations
+  const estImpressions = form.cpm > 0 ? Math.floor((25000 * form.cpm) / 100) : 0
+  const estClicks = Math.floor(estImpressions * 0.03)
+  const estRevenue = (estClicks * form.cpc) + (estImpressions * form.cpm / 1000)
+
+  const selectedDevices = Object.entries(form.devices).filter(([, v]) => v).length
+
+  return (
+    <div className="space-y-5 fade-in-up">
+      {/* ── Header Bar ── */}
+      <Card className="!p-0 overflow-hidden">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 md:p-5">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: `${C.purple}15` }}>
+              <Plus className="h-5 w-5" style={{ color: C.purple }} />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-white">Create New Ad</h3>
+              <p className="text-[11px]" style={{ color: C.textTer }}>Fill in the details to create a new advertisement</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowPreview(!showPreview)}
+              className="flex items-center gap-1.5 rounded-xl border px-4 py-2 text-[12px] font-medium transition-all hover:bg-white/[0.03]"
+              style={{ borderColor: C.border, color: C.textSec }}
+            >
+              <Eye className="h-3.5 w-3.5" /> Preview
+            </button>
+            <button
+              onClick={() => setForm({
+                title: '', type: 'banner', placement: 'homepage', mediaUrl: '', redirectUrl: '',
+                vastTag: '', devices: { desktop: true, mobile: false, tablet: false },
+                countries: '', category: '', startDate: '', endDate: '', cpm: 100, cpc: 2, abGroup: '',
+              })}
+              className="flex items-center gap-1.5 rounded-xl border px-4 py-2 text-[12px] font-medium transition-all hover:bg-white/[0.03]"
+              style={{ borderColor: C.border, color: C.textSec }}
+            >
+              <X className="h-3.5 w-3.5" /> Cancel
+            </button>
+            <button
+              onClick={handleCreate}
+              disabled={creating || !form.title}
+              className="flex items-center gap-1.5 rounded-xl px-4 py-2 text-[12px] font-semibold text-white transition-all hover:opacity-90 disabled:opacity-50"
+              style={{ background: C.success }}
+            >
+              {creating ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+              {creating ? 'Saving...' : 'Save Ad'}
+            </button>
+          </div>
+        </div>
+      </Card>
+
+      {/* ── Two Column: Ad Details + Targeting ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* LEFT COLUMN — AD DETAILS */}
+        <Card>
+          <div className="flex items-center gap-2.5 rounded-xl px-4 py-2.5 mb-5" style={sectionHeaderStyle}>
+            <FileText className="h-4 w-4" style={{ color: C.purple }} />
+            <span className="text-[12px] font-bold uppercase tracking-wider" style={{ color: C.purple }}>AD DETAILS</span>
+          </div>
+
+          <div className="space-y-4">
+            {/* Ad Title */}
+            <div>
+              <label className="block text-[11px] font-medium mb-1.5" style={{ color: C.textSec }}>Ad Title</label>
+              <input
+                type="text"
+                value={form.title}
+                onChange={(e) => setForm(prev => ({ ...prev, title: e.target.value }))}
+                className="w-full border px-3.5 py-2.5 text-sm text-white bg-transparent focus:outline-none focus:border-white/20 transition-colors"
+                style={inputStyle}
+                placeholder="Enter ad title..."
+              />
+            </div>
+
+            {/* Ad Type + Placement */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[11px] font-medium mb-1.5" style={{ color: C.textSec }}>Ad Type</label>
+                <div className="relative">
+                  <select
+                    value={form.type}
+                    onChange={(e) => setForm(prev => ({ ...prev, type: e.target.value }))}
+                    className="w-full border px-3.5 py-2.5 text-sm text-white bg-transparent focus:outline-none appearance-none cursor-pointer"
+                    style={{ ...inputStyle, background: `linear-gradient(135deg, ${C.purple}10, rgba(255,255,255,0.03))` }}
+                  >
+                    <option value="banner" style={{ background: '#1e1e1e' }}>Banner</option>
+                    <option value="pre-roll" style={{ background: '#1e1e1e' }}>Pre-Roll</option>
+                    <option value="mid-roll" style={{ background: '#1e1e1e' }}>Mid-Roll</option>
+                    <option value="overlay" style={{ background: '#1e1e1e' }}>Overlay</option>
+                    <option value="native" style={{ background: '#1e1e1e' }}>Native</option>
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none" style={{ color: C.purple }} />
+                </div>
+              </div>
+              <div>
+                <label className="block text-[11px] font-medium mb-1.5" style={{ color: C.textSec }}>Placement</label>
+                <div className="relative">
+                  <select
+                    value={form.placement}
+                    onChange={(e) => setForm(prev => ({ ...prev, placement: e.target.value }))}
+                    className="w-full border px-3.5 py-2.5 text-sm text-white bg-transparent focus:outline-none appearance-none cursor-pointer"
+                    style={{ ...inputStyle, background: `linear-gradient(135deg, ${C.purple}10, rgba(255,255,255,0.03))` }}
+                  >
+                    <option value="homepage" style={{ background: '#1e1e1e' }}>Homepage</option>
+                    <option value="player" style={{ background: '#1e1e1e' }}>Player</option>
+                    <option value="sidebar" style={{ background: '#1e1e1e' }}>Sidebar</option>
+                    <option value="footer" style={{ background: '#1e1e1e' }}>Footer</option>
+                    <option value="header" style={{ background: '#1e1e1e' }}>Header</option>
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none" style={{ color: C.purple }} />
+                </div>
+              </div>
+            </div>
+
+            {/* Media Upload */}
+            <div>
+              <label className="block text-[11px] font-medium mb-1.5" style={{ color: C.textSec }}>Media (Image / Video)</label>
+              {form.mediaUrl ? (
+                <div className="relative rounded-xl border-2 overflow-hidden" style={{ borderColor: `${C.success}30`, background: 'rgba(255,255,255,0.02)' }}>
+                  <div className="h-40 flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${C.success}08, rgba(255,255,255,0.01))` }}>
+                    {form.mediaUrl.match(/\.(mp4|webm|mov)/i) ? (
+                      <div className="flex flex-col items-center gap-2">
+                        <Play className="h-10 w-10" style={{ color: C.success }} />
+                        <span className="text-[11px]" style={{ color: C.textTer }}>Video loaded</span>
+                      </div>
+                    ) : (
+                      <img src={form.mediaUrl} alt="Ad preview" className="h-full w-full object-cover" />
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between px-3 py-2 border-t" style={{ borderColor: C.border }}>
+                    <span className="text-[10px] truncate max-w-[200px]" style={{ color: C.textTer }}>{form.mediaUrl}</span>
+                    <button onClick={() => setForm(prev => ({ ...prev, mediaUrl: '' }))} className="rounded-lg p-1 transition-colors hover:bg-white/[0.05]" style={{ color: C.accent }}>
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <label className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 transition-colors hover:border-white/10 cursor-pointer" style={{ borderColor: C.border, background: 'rgba(255,255,255,0.01)' }}>
+                  {uploading ? (
+                    <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/10 border-t-[#2ecc71]" />
+                  ) : (
+                    <>
+                      <div className="flex h-12 w-12 items-center justify-center rounded-xl mb-2" style={{ background: `${C.success}10` }}>
+                        <CloudUpload className="h-6 w-6" style={{ color: C.success }} />
+                      </div>
+                      <p className="text-[12px] font-medium text-white">Drag & drop your file here or click to browse</p>
+                      <p className="text-[10px] mt-1" style={{ color: C.textDim }}>JPG, PNG, GIF, MP4, WEBM (max 5MB)</p>
+                    </>
+                  )}
+                  <input type="file" accept="image/*,video/*" onChange={handleUpload} className="hidden" />
+                </label>
+              )}
+            </div>
+
+            {/* Media URL */}
+            <div>
+              <label className="block text-[11px] font-medium mb-1.5" style={{ color: C.textSec }}>Media URL</label>
+              <input
+                type="text"
+                value={form.mediaUrl}
+                onChange={(e) => setForm(prev => ({ ...prev, mediaUrl: e.target.value }))}
+                className="w-full border px-3.5 py-2.5 text-sm text-white bg-transparent focus:outline-none focus:border-white/20 transition-colors"
+                style={inputStyle}
+                placeholder="https://yourdomain.com/ads/banner.jpg"
+              />
+            </div>
+
+            {/* Redirect URL */}
+            <div>
+              <label className="block text-[11px] font-medium mb-1.5" style={{ color: C.textSec }}>Redirect URL</label>
+              <input
+                type="text"
+                value={form.redirectUrl}
+                onChange={(e) => setForm(prev => ({ ...prev, redirectUrl: e.target.value }))}
+                className="w-full border px-3.5 py-2.5 text-sm text-white bg-transparent focus:outline-none focus:border-white/20 transition-colors"
+                style={inputStyle}
+                placeholder="https://yoursite.com/landing"
+              />
+            </div>
+
+            {/* VAST Tag */}
+            <div>
+              <label className="block text-[11px] font-medium mb-1.5" style={{ color: C.textSec }}>External HTML / VAST Tag (Optional)</label>
+              <textarea
+                value={form.vastTag}
+                onChange={(e) => setForm(prev => ({ ...prev, vastTag: e.target.value }))}
+                rows={3}
+                className="w-full border px-3.5 py-2.5 text-sm text-white bg-transparent focus:outline-none focus:border-white/20 transition-colors resize-none font-mono"
+                style={{ ...inputStyle, fontSize: '11px' }}
+                placeholder='<script async src="..."></script>'
+              />
+            </div>
+          </div>
+        </Card>
+
+        {/* RIGHT COLUMN — TARGETING & SETTINGS */}
+        <Card>
+          <div className="flex items-center gap-2.5 rounded-xl px-4 py-2.5 mb-5" style={sectionHeaderStyle}>
+            <SlidersHorizontal className="h-4 w-4" style={{ color: C.purple }} />
+            <span className="text-[12px] font-bold uppercase tracking-wider" style={{ color: C.purple }}>TARGETING & SETTINGS</span>
+          </div>
+
+          <div className="space-y-4">
+            {/* Target Devices */}
+            <div>
+              <label className="block text-[11px] font-medium mb-2" style={{ color: C.textSec }}>Target Devices</label>
+              <div className="flex gap-2">
+                {([
+                  { key: 'desktop' as const, label: 'Desktop', icon: Monitor },
+                  { key: 'mobile' as const, label: 'Mobile', icon: Smartphone },
+                  { key: 'tablet' as const, label: 'Tablet', icon: Tablet },
+                ]).map((d) => {
+                  const isActive = form.devices[d.key]
+                  const Icon = d.icon
+                  return (
+                    <button
+                      key={d.key}
+                      onClick={() => setForm(prev => ({ ...prev, devices: { ...prev.devices, [d.key]: !prev.devices[d.key] } }))}
+                      className="flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-[11px] font-medium border transition-all"
+                      style={{
+                        borderColor: isActive ? `${C.success}40` : C.border,
+                        background: isActive ? `${C.success}10` : 'rgba(255,255,255,0.02)',
+                        color: isActive ? C.success : C.textTer,
+                      }}
+                    >
+                      <Icon className="h-3.5 w-3.5" />
+                      {d.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Country */}
+            <div>
+              <label className="block text-[11px] font-medium mb-1.5" style={{ color: C.textSec }}>Country (Codes, comma separated)</label>
+              <input
+                type="text"
+                value={form.countries}
+                onChange={(e) => setForm(prev => ({ ...prev, countries: e.target.value }))}
+                className="w-full border px-3.5 py-2.5 text-sm text-white bg-transparent focus:outline-none focus:border-white/20 transition-colors"
+                style={inputStyle}
+                placeholder="IN, US, GB"
+              />
+            </div>
+
+            {/* Category Filter */}
+            <div>
+              <label className="block text-[11px] font-medium mb-1.5" style={{ color: C.textSec }}>Category Filter (Optional)</label>
+              <input
+                type="text"
+                value={form.category}
+                onChange={(e) => setForm(prev => ({ ...prev, category: e.target.value }))}
+                className="w-full border px-3.5 py-2.5 text-sm text-white bg-transparent focus:outline-none focus:border-white/20 transition-colors"
+                style={inputStyle}
+                placeholder="e.g. Gaming, Entertainment"
+              />
+            </div>
+
+            {/* Start / End Date */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[11px] font-medium mb-1.5" style={{ color: C.textSec }}>Start Date</label>
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none" style={{ color: C.textDim }} />
+                  <input
+                    type="date"
+                    value={form.startDate}
+                    onChange={(e) => setForm(prev => ({ ...prev, startDate: e.target.value }))}
+                    className="w-full border pl-9 pr-3.5 py-2.5 text-sm text-white bg-transparent focus:outline-none focus:border-white/20 transition-colors"
+                    style={inputStyle}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-[11px] font-medium mb-1.5" style={{ color: C.textSec }}>End Date</label>
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none" style={{ color: C.textDim }} />
+                  <input
+                    type="date"
+                    value={form.endDate}
+                    onChange={(e) => setForm(prev => ({ ...prev, endDate: e.target.value }))}
+                    className="w-full border pl-9 pr-3.5 py-2.5 text-sm text-white bg-transparent focus:outline-none focus:border-white/20 transition-colors"
+                    style={inputStyle}
+                    placeholder="mm/dd/yyyy"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* CPM Slider */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-[11px] font-medium" style={{ color: C.textSec }}>CPM / ( ₹ / 1000 Views )</label>
+                <span className="text-[13px] font-bold" style={{ color: C.success }}>{form.cpm}</span>
+              </div>
+              <input
+                type="range"
+                min={1}
+                max={500}
+                value={form.cpm}
+                onChange={(e) => setForm(prev => ({ ...prev, cpm: Number(e.target.value) }))}
+                className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
+                style={{ background: `linear-gradient(to right, ${C.success} ${((form.cpm - 1) / 499) * 100}%, rgba(255,255,255,0.06) ${((form.cpm - 1) / 499) * 100}%)` }}
+              />
+            </div>
+
+            {/* CPC Slider */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-[11px] font-medium" style={{ color: C.textSec }}>CPC / ( ₹ / Click )</label>
+                <span className="text-[13px] font-bold" style={{ color: C.success }}>{form.cpc}</span>
+              </div>
+              <input
+                type="range"
+                min={1}
+                max={50}
+                value={form.cpc}
+                onChange={(e) => setForm(prev => ({ ...prev, cpc: Number(e.target.value) }))}
+                className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
+                style={{ background: `linear-gradient(to right, ${C.success} ${((form.cpc - 1) / 49) * 100}%, rgba(255,255,255,0.06) ${((form.cpc - 1) / 49) * 100}%)` }}
+              />
+            </div>
+
+            {/* A/B Test Group */}
+            <div>
+              <label className="block text-[11px] font-medium mb-1.5" style={{ color: C.textSec }}>A/B Test Group Name (Optional)</label>
+              <input
+                type="text"
+                value={form.abGroup}
+                onChange={(e) => setForm(prev => ({ ...prev, abGroup: e.target.value }))}
+                className="w-full border px-3.5 py-2.5 text-sm text-white bg-transparent focus:outline-none focus:border-white/20 transition-colors"
+                style={inputStyle}
+                placeholder="e.g. Header-Promo"
+              />
+              <p className="text-[9px] mt-1.5 flex items-center gap-1" style={{ color: C.textDim }}>
+                <Info className="h-3 w-3" />
+                Ads with the same group name will be shown 50/50 in the same slot for A/B testing
+              </p>
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      {/* ── Bottom Row: Ad Preview + Estimated Summary ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* AD PREVIEW */}
+        <Card>
+          <div className="flex items-center gap-2.5 rounded-xl px-4 py-2.5 mb-4" style={sectionHeaderStyle}>
+            <Eye className="h-4 w-4" style={{ color: C.purple }} />
+            <span className="text-[12px] font-bold uppercase tracking-wider" style={{ color: C.purple }}>AD PREVIEW</span>
+          </div>
+          <p className="text-[10px] mb-3" style={{ color: C.textDim }}>This is how your ad will look like</p>
+          {showPreview ? (
+            <div className="rounded-xl border-2 overflow-hidden" style={{ borderColor: `${C.success}20` }}>
+              <div className="relative h-48 flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${C.success}15, ${C.success}05)` }}>
+                {form.mediaUrl ? (
+                  <img src={form.mediaUrl} alt="Ad Preview" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex flex-col items-center gap-2 text-center px-4">
+                    <div className="h-16 w-16 rounded-2xl flex items-center justify-center" style={{ background: `${C.success}15` }}>
+                      <ImageIcon className="h-8 w-8" style={{ color: C.success }} />
+                    </div>
+                    <p className="text-sm font-semibold text-white">{form.title || 'Your Ad Title'}</p>
+                    <p className="text-[11px]" style={{ color: C.textTer }}>Ad preview will appear here</p>
+                  </div>
+                )}
+                {/* Overlay badge */}
+                <div className="absolute bottom-2 right-2 rounded-lg px-2 py-1 text-[9px] font-medium text-white" style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)' }}>
+                  {form.type.toUpperCase()} • {form.placement.toUpperCase()}
+                </div>
+              </div>
+              <div className="p-3 flex items-center justify-between border-t" style={{ borderColor: C.border }}>
+                <span className="text-[11px] font-medium text-white">{form.title || 'Untitled Ad'}</span>
+                <button className="rounded-lg px-3 py-1 text-[10px] font-semibold text-white" style={{ background: C.success }}>SHOP NOW</button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-8 text-center" style={{ borderColor: C.border }}>
+              <ImageIcon className="h-10 w-10 mb-2" style={{ color: C.textDim }} />
+              <p className="text-sm font-medium text-white">Click &quot;Preview&quot; to see your ad</p>
+              <p className="text-[10px] mt-1" style={{ color: C.textDim }}>Preview may not be exact on all devices</p>
+            </div>
+          )}
+        </Card>
+
+        {/* ESTIMATED SUMMARY */}
+        <Card>
+          <div className="flex items-center gap-2.5 rounded-xl px-4 py-2.5 mb-4" style={sectionHeaderStyle}>
+            <TrendingUp className="h-4 w-4" style={{ color: C.purple }} />
+            <span className="text-[12px] font-bold uppercase tracking-wider" style={{ color: C.purple }}>ESTIMATED SUMMARY</span>
+          </div>
+          <p className="text-[10px] mb-4" style={{ color: C.textDim }}>Estimated impressions in next 30 days</p>
+
+          <div className="grid grid-cols-3 gap-3 mb-5">
+            {/* Est. Impressions */}
+            <div className="flex flex-col items-center gap-2 rounded-xl p-3 text-center border" style={{ borderColor: C.border, background: 'rgba(255,255,255,0.02)' }}>
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: `${C.success}15` }}>
+                <Eye className="h-5 w-5" style={{ color: C.success }} />
+              </div>
+              <p className="text-lg font-bold text-white">{fmt(estImpressions)}</p>
+              <span className="text-[9px]" style={{ color: C.textDim }}>/ 30 days</span>
+              <span className="text-[9px] font-medium" style={{ color: C.textTer }}>Est. Impressions</span>
+            </div>
+
+            {/* Est. Clicks */}
+            <div className="flex flex-col items-center gap-2 rounded-xl p-3 text-center border" style={{ borderColor: C.border, background: 'rgba(255,255,255,0.02)' }}>
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: `${C.purple}15` }}>
+                <MousePointer className="h-5 w-5" style={{ color: C.purple }} />
+              </div>
+              <p className="text-lg font-bold text-white">{fmt(estClicks)}</p>
+              <span className="text-[9px]" style={{ color: C.textDim }}>/ 30 days</span>
+              <span className="text-[9px] font-medium" style={{ color: C.textTer }}>Est. Clicks</span>
+            </div>
+
+            {/* Est. Revenue */}
+            <div className="flex flex-col items-center gap-2 rounded-xl p-3 text-center border" style={{ borderColor: C.border, background: 'rgba(255,255,255,0.02)' }}>
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: `${C.success}15` }}>
+                <DollarSign className="h-5 w-5" style={{ color: C.success }} />
+              </div>
+              <p className="text-lg font-bold text-white">₹{estRevenue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+              <span className="text-[9px]" style={{ color: C.textDim }}>/ 30 days</span>
+              <span className="text-[9px] font-medium" style={{ color: C.textTer }}>Est. Revenue</span>
+            </div>
+          </div>
+
+          {/* Quick Summary Bar */}
+          <div className="rounded-xl border p-3" style={{ borderColor: C.border, background: 'rgba(255,255,255,0.01)' }}>
+            <div className="flex items-center gap-2 mb-2">
+              <Info className="h-3.5 w-3.5 flex-shrink-0" style={{ color: C.warning }} />
+              <span className="text-[9px] font-medium" style={{ color: C.textTer }}>Estimates are based on your CPM, CPC and Historical data</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-[10px]">
+              <div className="flex justify-between">
+                <span style={{ color: C.textDim }}>Targeting</span>
+                <span style={{ color: C.textSec }}>{selectedDevices} device{selectedDevices !== 1 ? 's' : ''} • {form.countries || 'All'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span style={{ color: C.textDim }}>Type</span>
+                <span style={{ color: C.textSec }} className="capitalize">{form.type} • {form.placement}</span>
+              </div>
+            </div>
+          </div>
+        </Card>
+      </div>
     </div>
   )
 }
@@ -3197,7 +3738,7 @@ function renderPage(page: AdminPage): React.ReactNode {
   if (page === 'users') return <OnlineUsersPage />
   if (page === 'live-control') return <LiveControlPage />
   if (page === 'videos') return <GenericPage title="Videos" subtitle="Video content library" icon={<Video className="h-5 w-5" style={{ color: C.info }} />} accent={C.info} />
-  if (page === 'highlights') return <GenericPage title="Highlights" subtitle="Match highlights" icon={<Zap className="h-5 w-5" style={{ color: C.accent }} />} accent={C.accent} />
+  if (page === 'highlights') return <GenericPage title="Video Upload" subtitle="Upload and manage videos" icon={<Zap className="h-5 w-5" style={{ color: C.accent }} />} accent={C.accent} />
   if (page === 'reports') return <GenericPage title="Reports" subtitle="User reports moderation" icon={<AlertTriangle className="h-5 w-5" style={{ color: C.accent }} />} accent={C.accent} />
   if (page === 'categories') return <GenericPage title="Categories" subtitle="Content categories" icon={<FolderOpen className="h-5 w-5" style={{ color: C.purple }} />} accent={C.purple} />
   if (page === 'schedules') return <GenericPage title="Schedules" subtitle="Match schedules" icon={<CalendarClock className="h-5 w-5" style={{ color: C.info }} />} accent={C.info} />
