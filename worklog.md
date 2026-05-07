@@ -299,3 +299,39 @@ Stage Summary:
 - Ads Manager page now shows: Page Header → Stats Cards → Search bar + Refresh → Ads Table → CreateNewAdSection (bottom)
 - "Highlights" was already renamed to "Video Upload" in sidebar (line 139) and page render (line 3741)
 - CreateNewAdSection remains as the full-featured ad creation form at the bottom of Ads Manager
+
+---
+Task ID: 2
+Agent: Main Agent
+Task: Create Video Upload and Categories pages matching screenshots
+
+Work Log:
+- Analyzed both uploaded screenshots using VLM skill
+- Screenshot 1: Video Upload page with two-column layout (upload left, details right)
+- Screenshot 2: Categories page with action cards, search/sort/grid-list toggle, category cards grid
+- Added missing lucide icons: Pencil, LayoutGrid, List, Link2, Shield, GripVertical
+- Created VideoUploadPage component (~450 lines) with:
+  - Page header, tab navigation (Video/Thumbnail)
+  - Left column: Upload area with drag-drop, file info card, video preview, change file, paste URL option, thumbnail grid selection
+  - Right column: Title (char counter), Description (char counter), Category dropdown, Quality dropdown, Duration input, Visibility toggles (Featured/Trending), Clear/Upload buttons
+  - Disclaimer footer, Recently Uploaded videos table
+- Created CategoriesPage component (~280 lines) with:
+  - Page header with "New Category" button
+  - 3 action cards (Create, Edit, Delete category)
+  - Search bar, Sort dropdown (Name A-Z/Z-A, Newest), Grid/List view toggle
+  - Grid view: Category cards with gradient header, folder icon, video count, created date, edit/delete buttons
+  - List view: Table layout
+  - Empty state with "Create Your First Category" CTA
+  - Create/Edit modal with name and description fields
+  - Delete confirmation modal
+- Added Category model to Prisma schema (id, name, description, thumbnail, videoCount, timestamps)
+- Pushed schema to database with db:push
+- Created /api/categories route with GET, POST, PUT, DELETE handlers
+- Updated /api/videos route with POST and DELETE handlers
+- Wired up renderPage: highlights -> VideoUploadPage, categories -> CategoriesPage
+- Lint passes with no errors
+
+Stage Summary:
+- Video Upload page: Full two-column form UI matching screenshot, connected to /api/videos
+- Categories page: Full CRUD with grid/list views, search, sort, modals, connected to /api/categories
+- Both pages fully functional with real database operations

@@ -67,6 +67,13 @@ import {
   MousePointer,
   Smartphone,
   Tablet,
+  Pencil,
+  LayoutGrid,
+  List,
+  Link2,
+  Shield,
+  GripVertical,
+  ImageIcon as ImageIconLucide,
 } from 'lucide-react'
 
 /* ═══════════════════════════════════════════════════════════════
@@ -3532,6 +3539,809 @@ function RTMPConfigPage() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   VIDEO UPLOAD PAGE
+   ═══════════════════════════════════════════════════════════════ */
+
+function VideoUploadPage() {
+  const [activeTab, setActiveTab] = useState<'video' | 'thumbnail'>('video')
+  const [uploading, setUploading] = useState(false)
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null)
+  const [videoUrl, setVideoUrl] = useState('')
+  const [selectedThumb, setSelectedThumb] = useState(0)
+  const [creating, setCreating] = useState(false)
+  const [form, setForm] = useState({
+    title: '',
+    description: '',
+    category: 'football',
+    quality: '1080p',
+    duration: '',
+    isFeatured: false,
+    isTrending: false,
+  })
+
+  const [videos, setVideos] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const fetchVideos = useCallback(async () => {
+    try {
+      const res = await fetch('/api/videos')
+      if (res.ok) {
+        const data = await res.json()
+        setVideos(Array.isArray(data) ? data : data.videos || [])
+      }
+    } catch { /* ignore */ }
+    finally { setLoading(false) }
+  }, [])
+  useEffect(() => { fetchVideos() }, [fetchVideos])
+
+  const inputStyle: React.CSSProperties = {
+    background: 'rgba(255,255,255,0.03)',
+    borderColor: C.border,
+    borderRadius: 12,
+  }
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('type', 'video')
+      const res = await fetch('/api/upload', { method: 'POST', body: formData })
+      if (res.ok) {
+        const data = await res.json()
+        setVideoUrl(data.url || data.fileUrl || '')
+        setUploadedFile(file)
+      }
+    } catch { /* ignore */ }
+    finally { setUploading(false) }
+  }
+
+  const handleVideoSubmit = async () => {
+    if (!form.title || !videoUrl) return
+    setCreating(true)
+    try {
+      const res = await fetch('/api/videos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: form.title,
+          description: form.description,
+          category: form.category,
+          thumbnail: '',
+          duration: form.duration || '00:00',
+          videoUrl,
+          isFeatured: form.isFeatured,
+        }),
+      })
+      if (res.ok) {
+        setForm({ title: '', description: '', category: 'football', quality: '1080p', duration: '', isFeatured: false, isTrending: false })
+        setVideoUrl('')
+        setUploadedFile(null)
+        fetchVideos()
+      }
+    } catch { /* ignore */ }
+    finally { setCreating(false) }
+  }
+
+  const handleDeleteVideo = async (id: string) => {
+    try {
+      await fetch('/api/videos', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
+      fetchVideos()
+    } catch { /* ignore */ }
+  }
+
+  const sampleThumbs = [
+    '/sportix/stadium-preview.png',
+    '/sportix/cricket-stadium.png',
+    '/sportix/stadium-preview.png',
+    '/sportix/cricket-stadium.png',
+  ]
+
+  return (
+    <div className="space-y-5 fade-in-up">
+      {/* ── Page Header ── */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: `${C.accent}15` }}>
+            <Zap className="h-5 w-5" style={{ color: C.accent }} />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-white">Upload Video</h2>
+            <p className="text-[11px]" style={{ color: C.textTer }}>Upload your video — preview is auto-generated</p>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Tabs ── */}
+      <div className="flex items-center gap-1 border-b pb-0" style={{ borderColor: C.border }}>
+        {(['video', 'thumbnail'] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className="flex items-center gap-2 px-4 py-2.5 text-[12px] font-semibold capitalize transition-all border-b-2"
+            style={{
+              color: activeTab === tab ? C.accent : C.textTer,
+              borderColor: activeTab === tab ? C.accent : 'transparent',
+              background: 'transparent',
+            }}
+          >
+            {tab === 'video' ? <Video className="h-4 w-4" /> : <ImageIcon className="h-4 w-4" />}
+            {tab}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Two Column Layout ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* LEFT — Upload Video */}
+        <Card>
+          <div className="flex items-center gap-2.5 rounded-xl px-4 py-2.5 mb-5" style={{ background: `${C.accent}10`, border: `1px solid ${C.accent}20` }}>
+            <span className="flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold text-white" style={{ background: C.accent }}>1</span>
+            <span className="text-[12px] font-bold uppercase tracking-wider" style={{ color: C.accent }}>Upload Video</span>
+            <CloudUpload className="h-4 w-4 ml-1" style={{ color: C.accent }} />
+          </div>
+
+          {/* Upload Area */}
+          {uploadedFile && videoUrl ? (
+            <div className="space-y-4">
+              {/* File Info Card */}
+              <div className="flex items-center gap-3 rounded-xl border p-3" style={{ borderColor: C.border, background: 'rgba(255,255,255,0.02)' }}>
+                <div className="h-14 w-24 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center" style={{ background: C.sidebar }}>
+                  <Play className="h-5 w-5 text-white/60" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[12px] font-medium text-white truncate">{uploadedFile.name}</p>
+                  <p className="text-[10px] mt-0.5" style={{ color: C.textTer }}>
+                    {uploadedFile.type || 'video/mp4'} • {(uploadedFile.size / (1024 * 1024)).toFixed(1)} MB
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-5 w-5" style={{ color: C.success }} />
+                  <button onClick={() => { setUploadedFile(null); setVideoUrl('') }} className="rounded-lg p-1.5 transition-colors hover:bg-white/[0.05]" style={{ color: C.accent }}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Video Preview */}
+              <div className="rounded-xl overflow-hidden" style={{ background: '#0a0a0a' }}>
+                <video src={videoUrl} controls className="w-full aspect-video object-cover" />
+              </div>
+
+              {/* Change File */}
+              <label className="flex items-center justify-center gap-2 rounded-xl border-2 border-dashed p-3 cursor-pointer transition-colors hover:border-white/10" style={{ borderColor: C.border }}>
+                <RefreshCw className="h-4 w-4" style={{ color: C.accent }} />
+                <span className="text-[11px] font-medium" style={{ color: C.accent }}>Change File</span>
+                <input type="file" accept="video/*" onChange={handleFileUpload} className="hidden" />
+              </label>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Drop Zone */}
+              {uploading ? (
+                <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-8">
+                  <div className="h-10 w-10 animate-spin rounded-full border-2 border-white/10 mb-3" style={{ borderTopColor: C.accent }} />
+                  <p className="text-[12px] font-medium text-white">Uploading video...</p>
+                </div>
+              ) : (
+                <label className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-8 cursor-pointer transition-all hover:border-white/10" style={{ borderColor: C.border, background: 'rgba(255,255,255,0.01)' }}>
+                  <CloudUpload className="h-10 w-10 mb-3" style={{ color: C.accent }} />
+                  <p className="text-[13px] font-medium text-white mb-1">Drag & drop your video here</p>
+                  <p className="text-[11px] font-semibold" style={{ color: C.accent }}>or click to browse files</p>
+                  <p className="text-[10px] mt-2" style={{ color: C.textDim }}>MP4, MOV, AVI up to 500MB</p>
+                  <input type="file" accept="video/*" onChange={handleFileUpload} className="hidden" />
+                </label>
+              )}
+
+              {/* OR Divider */}
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-px" style={{ background: C.border }} />
+                <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textDim }}>OR</span>
+                <div className="flex-1 h-px" style={{ background: C.border }} />
+              </div>
+
+              {/* Paste URL */}
+              <div className="flex items-center gap-2 rounded-xl border px-3 py-2.5" style={{ borderColor: C.border, background: 'rgba(255,255,255,0.02)' }}>
+                <Link2 className="h-4 w-4" style={{ color: C.accent }} />
+                <input
+                  type="text"
+                  value={videoUrl.startsWith('blob:') ? '' : videoUrl}
+                  onChange={(e) => setVideoUrl(e.target.value)}
+                  placeholder="Paste video URL..."
+                  className="flex-1 bg-transparent text-[12px] text-white placeholder:text-white/20 focus:outline-none"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Thumbnail Section */}
+          {videoUrl && (
+            <div className="mt-5 pt-5 border-t" style={{ borderColor: C.border }}>
+              <div className="flex items-center justify-between mb-3">
+                <label className="text-[12px] font-semibold text-white">Thumbnail</label>
+                <label className="flex items-center gap-1.5 text-[11px] font-medium cursor-pointer" style={{ color: C.accent }}>
+                  <Upload className="h-3.5 w-3.5" /> Upload Manually
+                  <input type="file" accept="image/*" className="hidden" />
+                </label>
+              </div>
+              <div className="grid grid-cols-4 gap-2">
+                {sampleThumbs.map((thumb, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setSelectedThumb(i)}
+                    className="relative aspect-video rounded-lg overflow-hidden border-2 transition-all"
+                    style={{
+                      borderColor: selectedThumb === i ? C.accent : C.border,
+                      background: C.sidebar,
+                    }}
+                  >
+                    <img src={thumb} alt={`Thumb ${i + 1}`} className="h-full w-full object-cover" />
+                    {selectedThumb === i && (
+                      <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'rgba(230,57,70,0.3)' }}>
+                        <CheckCircle className="h-5 w-5 text-white" />
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-2 mt-2">
+                <Info className="h-3.5 w-3.5" style={{ color: C.textDim }} />
+                <p className="text-[10px]" style={{ color: C.textDim }}>Video thumbnail and duration are auto-generated after upload.</p>
+              </div>
+            </div>
+          )}
+        </Card>
+
+        {/* RIGHT — Video Details */}
+        <Card>
+          <div className="flex items-center gap-2.5 rounded-xl px-4 py-2.5 mb-5" style={{ background: `${C.accent}10`, border: `1px solid ${C.accent}20` }}>
+            <span className="flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold text-white" style={{ background: C.accent }}>2</span>
+            <span className="text-[12px] font-bold uppercase tracking-wider" style={{ color: C.accent }}>Video Details</span>
+            <Pencil className="h-4 w-4 ml-1" style={{ color: C.accent }} />
+          </div>
+
+          <div className="space-y-4">
+            {/* Title */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-[11px] font-medium" style={{ color: C.textSec }}>Title <span style={{ color: C.accent }}>*</span></label>
+                <span className="text-[10px]" style={{ color: C.textDim }}>{form.title.length}/100</span>
+              </div>
+              <input
+                type="text"
+                value={form.title}
+                onChange={(e) => setForm(prev => ({ ...prev, title: e.target.value.slice(0, 100) }))}
+                className="w-full border px-3.5 py-2.5 text-sm text-white bg-transparent focus:outline-none focus:border-white/20 transition-colors"
+                style={inputStyle}
+                placeholder="Enter video title..."
+              />
+            </div>
+
+            {/* Description */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-[11px] font-medium" style={{ color: C.textSec }}>Description</label>
+                <span className="text-[10px]" style={{ color: C.textDim }}>{form.description.length}/500</span>
+              </div>
+              <textarea
+                value={form.description}
+                onChange={(e) => setForm(prev => ({ ...prev, description: e.target.value.slice(0, 500) }))}
+                className="w-full border px-3.5 py-2.5 text-sm text-white bg-transparent focus:outline-none focus:border-white/20 transition-colors resize-none"
+                style={{ ...inputStyle, minHeight: 80 }}
+                placeholder="Describe your video..."
+                rows={3}
+              />
+            </div>
+
+            {/* Category + Quality */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[11px] font-medium mb-1.5" style={{ color: C.textSec }}>Category</label>
+                <div className="relative">
+                  <select
+                    value={form.category}
+                    onChange={(e) => setForm(prev => ({ ...prev, category: e.target.value }))}
+                    className="w-full border px-3.5 py-2.5 text-sm text-white bg-transparent focus:outline-none appearance-none cursor-pointer"
+                    style={{ ...inputStyle, background: '#1e1e1e' }}
+                  >
+                    <option value="football" style={{ background: '#1e1e1e' }}>Football</option>
+                    <option value="basketball" style={{ background: '#1e1e1e' }}>Basketball</option>
+                    <option value="cricket" style={{ background: '#1e1e1e' }}>Cricket</option>
+                    <option value="tennis" style={{ background: '#1e1e1e' }}>Tennis</option>
+                    <option value="racing" style={{ background: '#1e1e1e' }}>Racing</option>
+                    <option value="mma" style={{ background: '#1e1e1e' }}>MMA</option>
+                    <option value="baseball" style={{ background: '#1e1e1e' }}>Baseball</option>
+                    <option value="hockey" style={{ background: '#1e1e1e' }}>Hockey</option>
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none" style={{ color: C.textDim }} />
+                </div>
+              </div>
+              <div>
+                <label className="block text-[11px] font-medium mb-1.5" style={{ color: C.textSec }}>Quality</label>
+                <div className="relative">
+                  <select
+                    value={form.quality}
+                    onChange={(e) => setForm(prev => ({ ...prev, quality: e.target.value }))}
+                    className="w-full border px-3.5 py-2.5 text-sm text-white bg-transparent focus:outline-none appearance-none cursor-pointer"
+                    style={{ ...inputStyle, background: '#1e1e1e' }}
+                  >
+                    <option value="4k" style={{ background: '#1e1e1e' }}>4K</option>
+                    <option value="1080p" style={{ background: '#1e1e1e' }}>1080p</option>
+                    <option value="720p" style={{ background: '#1e1e1e' }}>720p</option>
+                    <option value="480p" style={{ background: '#1e1e1e' }}>480p</option>
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none" style={{ color: C.textDim }} />
+                </div>
+              </div>
+            </div>
+
+            {/* Duration */}
+            <div>
+              <label className="block text-[11px] font-medium mb-1.5" style={{ color: C.textSec }}>Duration</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={form.duration}
+                  onChange={(e) => setForm(prev => ({ ...prev, duration: e.target.value }))}
+                  className="w-full border px-3.5 py-2.5 text-sm text-white bg-transparent focus:outline-none focus:border-white/20 transition-colors"
+                  style={inputStyle}
+                  placeholder="00:00"
+                />
+                <Clock className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none" style={{ color: C.textDim }} />
+              </div>
+            </div>
+
+            {/* Visibility Options */}
+            <div>
+              <label className="block text-[11px] font-medium mb-2.5" style={{ color: C.textSec }}>Visibility</label>
+              <div className="space-y-2">
+                {[
+                  { key: 'isFeatured' as const, label: 'Featured', color: C.warning },
+                  { key: 'isTrending' as const, label: 'Trending', color: C.success },
+                ].map(({ key, label, color }) => (
+                  <label key={key} className="flex items-center gap-3 rounded-xl border px-4 py-2.5 cursor-pointer transition-colors hover:bg-white/[0.02]" style={{ borderColor: form[key] ? color : C.border, background: form[key] ? `${color}08` : 'transparent' }}>
+                    <div className="relative h-5 w-9 rounded-full transition-colors" style={{ background: form[key] ? color : 'rgba(255,255,255,0.08)' }}>
+                      <span className="absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform" style={{ transform: form[key] ? 'translateX(18px)' : 'translateX(2px)' }} />
+                    </div>
+                    <span className="text-[12px] font-medium text-white">{label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => setForm({ title: '', description: '', category: 'football', quality: '1080p', duration: '', isFeatured: false, isTrending: false })}
+                className="flex-1 flex items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-[12px] font-medium transition-colors hover:bg-white/[0.03]"
+                style={{ borderColor: C.border, color: C.textSec }}
+              >
+                <RefreshCw className="h-3.5 w-3.5" /> Clear
+              </button>
+              <button
+                onClick={handleVideoSubmit}
+                disabled={creating || !form.title || !videoUrl}
+                className="flex-1 flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-[12px] font-semibold text-white transition-all hover:opacity-90 disabled:opacity-50"
+                style={{ background: C.accent }}
+              >
+                {creating ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                {creating ? 'Uploading...' : 'Upload Video'}
+              </button>
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      {/* ── Disclaimer ── */}
+      <div className="flex items-start gap-3 rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${C.border}` }}>
+        <Shield className="h-4 w-4 mt-0.5 flex-shrink-0" style={{ color: C.accent }} />
+        <p className="text-[10px] leading-relaxed" style={{ color: C.textTer }}>
+          By uploading, you confirm that you own the rights to this content and agree to our{' '}
+          <span className="font-semibold" style={{ color: C.accent }}>Terms of Service</span> and{' '}
+          <span className="font-semibold" style={{ color: C.accent }}>Community Guidelines</span>.
+        </p>
+      </div>
+
+      {/* ── Recently Uploaded Videos ── */}
+      <Card className="!p-0 overflow-hidden">
+        <div className="flex items-center justify-between p-5 pb-0">
+          <h3 className="text-[15px] font-semibold text-white">Recently Uploaded</h3>
+          <span className="text-[10px] font-medium px-2.5 py-1 rounded-full" style={{ background: `${C.accent}15`, color: C.accent }}>{videos.length} videos</span>
+        </div>
+        <div className="overflow-x-auto mt-4">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b" style={{ borderColor: C.border, background: 'rgba(255,255,255,0.02)' }}>
+                {['Title', 'Category', 'Duration', 'Status', 'Actions'].map((h) => (
+                  <th key={h} className="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textDim }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {videos.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-5 py-12 text-center">
+                    <Video className="h-8 w-8 mx-auto mb-2" style={{ color: C.textDim }} />
+                    <p className="text-sm" style={{ color: C.textTer }}>No videos uploaded yet</p>
+                    <p className="text-[11px] mt-1" style={{ color: C.textDim }}>Upload your first video above</p>
+                  </td>
+                </tr>
+              )}
+              {videos.slice(0, 10).map((v) => (
+                <tr key={v.id} className="border-b transition-colors hover:bg-white/[0.02]" style={{ borderColor: C.border }}>
+                  <td className="px-5 py-3">
+                    <div className="flex items-center gap-2">
+                      {v.thumbnail && (
+                        <div className="h-8 w-12 rounded-md overflow-hidden flex-shrink-0" style={{ background: C.sidebar }}>
+                          <img src={v.thumbnail} alt="" className="h-full w-full object-cover" />
+                        </div>
+                      )}
+                      <span className="text-[12px] font-medium text-white truncate max-w-[150px]">{v.title}</span>
+                    </div>
+                  </td>
+                  <td className="px-5 py-3">
+                    <StatusBadge text={v.category || 'N/A'} color={C.info} />
+                  </td>
+                  <td className="px-5 py-3 text-[12px]" style={{ color: C.textSec }}>{v.duration || '—'}</td>
+                  <td className="px-5 py-3">
+                    <StatusBadge text={v.isFeatured ? 'Featured' : 'Published'} color={v.isFeatured ? C.warning : C.success} />
+                  </td>
+                  <td className="px-5 py-3">
+                    <button onClick={() => handleDeleteVideo(v.id)} className="rounded-lg p-1.5 transition-colors hover:bg-white/[0.05]" style={{ color: C.accent }} title="Delete">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </div>
+  )
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CATEGORIES PAGE
+   ═══════════════════════════════════════════════════════════════ */
+
+function CategoriesPage() {
+  const [categories, setCategories] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showCreate, setShowCreate] = useState(false)
+  const [editCategory, setEditCategory] = useState<any>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const [sortBy, setSortBy] = useState('name-asc')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [form, setForm] = useState({ name: '', description: '' })
+  const [creating, setCreating] = useState(false)
+
+  const fetchCategories = useCallback(async () => {
+    try {
+      const res = await fetch('/api/categories')
+      if (res.ok) {
+        const data = await res.json()
+        setCategories(Array.isArray(data) ? data : [])
+      }
+    } catch { /* ignore */ }
+    finally { setLoading(false) }
+  }, [])
+  useEffect(() => { fetchCategories() }, [fetchCategories])
+
+  const handleCreate = async () => {
+    if (!form.name.trim()) return
+    setCreating(true)
+    try {
+      const res = await fetch('/api/categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      })
+      if (res.ok) {
+        setForm({ name: '', description: '' })
+        setShowCreate(false)
+        fetchCategories()
+      }
+    } catch { /* ignore */ }
+    finally { setCreating(false) }
+  }
+
+  const handleEdit = async () => {
+    if (!editCategory || !form.name.trim()) return
+    setCreating(true)
+    try {
+      const res = await fetch('/api/categories', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: editCategory.id, name: form.name, description: form.description }),
+      })
+      if (res.ok) {
+        setEditCategory(null)
+        setForm({ name: '', description: '' })
+        fetchCategories()
+      }
+    } catch { /* ignore */ }
+    finally { setCreating(false) }
+  }
+
+  const handleDelete = async (id: string) => {
+    try {
+      await fetch('/api/categories', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
+      setDeleteConfirm(null)
+      fetchCategories()
+    } catch { /* ignore */ }
+  }
+
+  const filtered = categories
+    .filter(c => c.name?.toLowerCase().includes(searchQuery.toLowerCase()))
+    .sort((a, b) => {
+      if (sortBy === 'name-asc') return (a.name || '').localeCompare(b.name || '')
+      if (sortBy === 'name-desc') return (b.name || '').localeCompare(a.name || '')
+      if (sortBy === 'newest') return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+      return 0
+    })
+
+  const inputStyle: React.CSSProperties = {
+    background: 'rgba(255,255,255,0.03)',
+    borderColor: C.border,
+    borderRadius: 12,
+  }
+
+  return (
+    <div className="space-y-5 fade-in-up">
+      {/* ── Page Header ── */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: `${C.purple}15` }}>
+            <FolderOpen className="h-5 w-5" style={{ color: C.purple }} />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-white">Categories</h2>
+            <p className="text-[11px]" style={{ color: C.textTer }}>Organize your sports library into collections.</p>
+          </div>
+        </div>
+        <button
+          onClick={() => { setShowCreate(true); setEditCategory(null); setForm({ name: '', description: '' }) }}
+          className="flex items-center gap-1.5 rounded-xl px-4 py-2 text-[12px] font-semibold text-white transition-all hover:opacity-90"
+          style={{ background: C.accent }}
+        >
+          <Plus className="h-3.5 w-3.5" /> New Category
+        </button>
+      </div>
+
+      {/* ── Action Cards ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {[
+          { title: 'CREATE NEW CATEGORY', desc: 'Add a new category to organize your content.', color: C.accent, icon: Plus, action: () => { setShowCreate(true); setEditCategory(null); setForm({ name: '', description: '' }) } },
+          { title: 'EDIT CATEGORY', desc: 'Rename or update existing category details.', color: C.purple, icon: Pencil, action: () => { if (categories[0]) { setEditCategory(categories[0]); setForm({ name: categories[0].name || '', description: categories[0].description || '' }); setShowCreate(true) } } },
+          { title: 'DELETE CATEGORY', desc: 'Delete a category and uncategorize its videos.', color: C.warning, icon: Trash2, action: () => { if (categories[0]) setDeleteConfirm(categories[0].id) } },
+        ].map((card) => {
+          const Icon = card.icon
+          return (
+            <Card key={card.title}>
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl flex-shrink-0" style={{ background: `${card.color}15` }}>
+                  <Icon className="h-5 w-5" style={{ color: card.color }} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-[11px] font-bold uppercase tracking-wider mb-1" style={{ color: card.color }}>{card.title}</h4>
+                  <p className="text-[10px] leading-relaxed mb-3" style={{ color: C.textTer }}>{card.desc}</p>
+                  <button
+                    onClick={card.action}
+                    className="rounded-lg border px-3 py-1.5 text-[10px] font-medium transition-colors hover:bg-white/[0.05]"
+                    style={{ borderColor: C.border, color: C.textSec }}
+                  >
+                    {card.title.split(' ')[0]} {card.title.split(' ')[1]}
+                  </button>
+                </div>
+              </div>
+            </Card>
+          )
+        })}
+      </div>
+
+      {/* ── Search, Sort, View Toggle ── */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+        <div className="flex-1 max-w-sm">
+          <div className="flex items-center gap-2 rounded-xl border px-3 py-2" style={{ borderColor: C.border, background: 'rgba(255,255,255,0.02)' }}>
+            <Search className="h-4 w-4" style={{ color: C.textDim }} />
+            <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search categories..." className="flex-1 bg-transparent text-sm text-white placeholder:text-white/20 focus:outline-none" />
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="rounded-xl border pl-3 pr-8 py-2 text-[11px] font-medium bg-transparent text-white focus:outline-none appearance-none cursor-pointer"
+              style={{ borderColor: C.border, background: C.card }}
+            >
+              <option value="name-asc" style={{ background: C.card }}>Name A-Z</option>
+              <option value="name-desc" style={{ background: C.card }}>Name Z-A</option>
+              <option value="newest" style={{ background: C.card }}>Newest First</option>
+            </select>
+            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3 w-3 pointer-events-none" style={{ color: C.textDim }} />
+          </div>
+          <div className="flex items-center rounded-xl border overflow-hidden" style={{ borderColor: C.border }}>
+            <button onClick={() => setViewMode('grid')} className="p-2 transition-colors" style={{ background: viewMode === 'grid' ? C.accent : 'transparent' }}>
+              <LayoutGrid className="h-3.5 w-3.5 text-white" />
+            </button>
+            <button onClick={() => setViewMode('list')} className="p-2 transition-colors" style={{ background: viewMode === 'list' ? C.accent : 'transparent' }}>
+              <List className="h-3.5 w-3.5 text-white" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Category Grid / List ── */}
+      {filtered.length === 0 && !loading ? (
+        <Card className="!py-16">
+          <div className="flex flex-col items-center text-center">
+            <div className="h-16 w-16 rounded-2xl flex items-center justify-center mb-4" style={{ background: `${C.purple}10` }}>
+              <FolderOpen className="h-8 w-8" style={{ color: C.purple }} />
+            </div>
+            <h3 className="text-[15px] font-bold text-white mb-1">No categories yet?</h3>
+            <p className="text-[12px] mb-4 max-w-xs" style={{ color: C.textTer }}>Create your first category to start organizing your videos.</p>
+            <button
+              onClick={() => { setShowCreate(true); setEditCategory(null); setForm({ name: '', description: '' }) }}
+              className="flex items-center gap-1.5 rounded-xl px-5 py-2.5 text-[12px] font-semibold text-white transition-all hover:opacity-90"
+              style={{ background: C.accent }}
+            >
+              <Plus className="h-4 w-4" /> Create Your First Category
+            </button>
+          </div>
+        </Card>
+      ) : (
+        viewMode === 'grid' ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filtered.map((cat) => (
+              <Card key={cat.id} className="!p-0 overflow-hidden">
+                <div className="h-28 relative" style={{ background: `linear-gradient(135deg, ${C.purple}15, ${C.accent}10)` }}>
+                  <div className="absolute top-3 right-3">
+                    <button className="rounded-lg p-1.5 transition-colors hover:bg-white/[0.05]">
+                      <MoreHorizontal className="h-4 w-4" style={{ color: C.textTer }} />
+                    </button>
+                  </div>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <FolderOpen className="h-10 w-10" style={{ color: `${C.purple}40` }} />
+                  </div>
+                </div>
+                <div className="p-4 space-y-2">
+                  <h4 className="text-[13px] font-bold text-white">{cat.name || 'Unnamed'}</h4>
+                  <div className="flex items-center gap-3">
+                    <span className="text-[10px]" style={{ color: C.textTer }}>{cat.videoCount || 0} videos</span>
+                    <span className="text-[10px]" style={{ color: C.textDim }}>•</span>
+                    <span className="text-[10px]" style={{ color: C.textTer }}>Created {cat.createdAt ? new Date(cat.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'recently'}</span>
+                  </div>
+                  {cat.description && <p className="text-[10px] leading-relaxed" style={{ color: C.textDim }}>{cat.description}</p>}
+                  <div className="flex items-center gap-2 pt-1">
+                    <button
+                      onClick={() => { setEditCategory(cat); setForm({ name: cat.name || '', description: cat.description || '' }); setShowCreate(true) }}
+                      className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[10px] font-medium transition-colors hover:bg-white/[0.05]"
+                      style={{ color: C.purple }}
+                    >
+                      <Pencil className="h-3 w-3" /> Edit
+                    </button>
+                    <button
+                      onClick={() => setDeleteConfirm(cat.id)}
+                      className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[10px] font-medium transition-colors hover:bg-white/[0.05]"
+                      style={{ color: C.accent }}
+                    >
+                      <Trash2 className="h-3 w-3" /> Delete
+                    </button>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <Card className="!p-0 overflow-hidden">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b" style={{ borderColor: C.border, background: 'rgba(255,255,255,0.02)' }}>
+                  {['Name', 'Videos', 'Created', 'Actions'].map((h) => (
+                    <th key={h} className="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textDim }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((cat) => (
+                  <tr key={cat.id} className="border-b transition-colors hover:bg-white/[0.02]" style={{ borderColor: C.border }}>
+                    <td className="px-5 py-3">
+                      <div className="flex items-center gap-2">
+                        <FolderOpen className="h-4 w-4" style={{ color: C.purple }} />
+                        <span className="text-[12px] font-medium text-white">{cat.name || 'Unnamed'}</span>
+                      </div>
+                    </td>
+                    <td className="px-5 py-3 text-[11px]" style={{ color: C.textSec }}>{cat.videoCount || 0}</td>
+                    <td className="px-5 py-3 text-[11px]" style={{ color: C.textTer }}>{cat.createdAt ? new Date(cat.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}</td>
+                    <td className="px-5 py-3">
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => { setEditCategory(cat); setForm({ name: cat.name || '', description: cat.description || '' }); setShowCreate(true) }} className="rounded-lg p-1.5 transition-colors hover:bg-white/[0.05]" style={{ color: C.purple }}><Pencil className="h-3.5 w-3.5" /></button>
+                        <button onClick={() => setDeleteConfirm(cat.id)} className="rounded-lg p-1.5 transition-colors hover:bg-white/[0.05]" style={{ color: C.accent }}><Trash2 className="h-3.5 w-3.5" /></button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Card>
+        )
+      )}
+
+      {/* ── Create / Edit Modal ── */}
+      {showCreate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
+          <Card className="w-full max-w-md !p-6 space-y-4" style={{ animation: 'fade-in-up 0.2s ease-out' }}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-[15px] font-bold text-white">{editCategory ? 'Edit Category' : 'Create Category'}</h3>
+              <button onClick={() => { setShowCreate(false); setEditCategory(null) }} className="rounded-lg p-1.5 transition-colors hover:bg-white/[0.05]">
+                <X className="h-4 w-4" style={{ color: C.textTer }} />
+              </button>
+            </div>
+            <div>
+              <label className="block text-[11px] font-medium mb-1.5" style={{ color: C.textSec }}>Category Name <span style={{ color: C.accent }}>*</span></label>
+              <input
+                type="text"
+                value={form.name}
+                onChange={(e) => setForm(prev => ({ ...prev, name: e.target.value }))}
+                className="w-full border px-3.5 py-2.5 text-sm text-white bg-transparent focus:outline-none focus:border-white/20 transition-colors"
+                style={inputStyle}
+                placeholder="Enter category name..."
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-medium mb-1.5" style={{ color: C.textSec }}>Description</label>
+              <textarea
+                value={form.description}
+                onChange={(e) => setForm(prev => ({ ...prev, description: e.target.value }))}
+                className="w-full border px-3.5 py-2.5 text-sm text-white bg-transparent focus:outline-none focus:border-white/20 transition-colors resize-none"
+                style={{ ...inputStyle, minHeight: 70 }}
+                placeholder="Describe this category..."
+                rows={3}
+              />
+            </div>
+            <div className="flex gap-3 pt-1">
+              <button onClick={() => { setShowCreate(false); setEditCategory(null) }} className="flex-1 rounded-xl border px-4 py-2.5 text-[12px] font-medium transition-colors hover:bg-white/[0.05]" style={{ borderColor: C.border, color: C.textSec }}>
+                Cancel
+              </button>
+              <button onClick={editCategory ? handleEdit : handleCreate} disabled={creating || !form.name.trim()} className="flex-1 flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-[12px] font-semibold text-white transition-all hover:opacity-90 disabled:opacity-50" style={{ background: C.accent }}>
+                {creating ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                {creating ? 'Saving...' : editCategory ? 'Update' : 'Create'}
+              </button>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* ── Delete Confirmation Modal ── */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
+          <Card className="w-full max-w-sm !p-6 space-y-4 text-center">
+            <div className="mx-auto h-12 w-12 rounded-full flex items-center justify-center" style={{ background: `${C.accent}15` }}>
+              <Trash2 className="h-6 w-6" style={{ color: C.accent }} />
+            </div>
+            <h3 className="text-[15px] font-bold text-white">Delete Category?</h3>
+            <p className="text-[12px]" style={{ color: C.textTer }}>This action cannot be undone. All videos in this category will be uncategorized.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setDeleteConfirm(null)} className="flex-1 rounded-xl border px-4 py-2.5 text-[12px] font-medium transition-colors hover:bg-white/[0.05]" style={{ borderColor: C.border, color: C.textSec }}>
+                Cancel
+              </button>
+              <button onClick={() => handleDelete(deleteConfirm)} className="flex-1 rounded-xl px-4 py-2.5 text-[12px] font-semibold text-white transition-all hover:opacity-90" style={{ background: C.accent }}>
+                Delete
+              </button>
+            </div>
+          </Card>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ═══════════════════════════════════════════════════════════════
    PAGE ROUTER
    ═══════════════════════════════════════════════════════════════ */
 
@@ -3545,9 +4355,9 @@ function renderPage(page: AdminPage): React.ReactNode {
   if (page === 'users') return <OnlineUsersPage />
   if (page === 'live-control') return <LiveControlPage />
   if (page === 'videos') return <GenericPage title="Videos" subtitle="Video content library" icon={<Video className="h-5 w-5" style={{ color: C.info }} />} accent={C.info} />
-  if (page === 'highlights') return <GenericPage title="Video Upload" subtitle="Upload and manage videos" icon={<Zap className="h-5 w-5" style={{ color: C.accent }} />} accent={C.accent} />
+  if (page === 'highlights') return <VideoUploadPage />
   if (page === 'reports') return <GenericPage title="Reports" subtitle="User reports moderation" icon={<AlertTriangle className="h-5 w-5" style={{ color: C.accent }} />} accent={C.accent} />
-  if (page === 'categories') return <GenericPage title="Categories" subtitle="Content categories" icon={<FolderOpen className="h-5 w-5" style={{ color: C.purple }} />} accent={C.purple} />
+  if (page === 'categories') return <CategoriesPage />
   if (page === 'schedules') return <GenericPage title="Schedules" subtitle="Match schedules" icon={<CalendarClock className="h-5 w-5" style={{ color: C.info }} />} accent={C.info} />
   if (page === 'comments') return <GenericPage title="Comments" subtitle="User comments" icon={<MessageSquare className="h-5 w-5" style={{ color: C.success }} />} accent={C.success} />
   if (page === 'banners') return <BannerAnalyticsPage />
