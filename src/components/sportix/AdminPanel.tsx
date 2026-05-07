@@ -3539,7 +3539,7 @@ function RTMPConfigPage() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   VIDEO UPLOAD PAGE
+   VIDEO UPLOAD PAGE — Exact match to reference screenshot
    ═══════════════════════════════════════════════════════════════ */
 
 function VideoUploadPage() {
@@ -3552,11 +3552,12 @@ function VideoUploadPage() {
   const [form, setForm] = useState({
     title: '',
     description: '',
-    category: 'football',
+    category: 'Travel & Nature',
     quality: '1080p',
     duration: '',
-    isFeatured: false,
-    isTrending: false,
+    featured: false,
+    trending: false,
+    live: false,
   })
 
   const [videos, setVideos] = useState<any[]>([])
@@ -3573,12 +3574,6 @@ function VideoUploadPage() {
     finally { setLoading(false) }
   }, [])
   useEffect(() => { fetchVideos() }, [fetchVideos])
-
-  const inputStyle: React.CSSProperties = {
-    background: 'rgba(255,255,255,0.03)',
-    borderColor: C.border,
-    borderRadius: 12,
-  }
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -3612,11 +3607,11 @@ function VideoUploadPage() {
           thumbnail: '',
           duration: form.duration || '00:00',
           videoUrl,
-          isFeatured: form.isFeatured,
+          isFeatured: form.featured,
         }),
       })
       if (res.ok) {
-        setForm({ title: '', description: '', category: 'football', quality: '1080p', duration: '', isFeatured: false, isTrending: false })
+        setForm({ title: '', description: '', category: 'Travel & Nature', quality: '1080p', duration: '', featured: false, trending: false, live: false })
         setVideoUrl('')
         setUploadedFile(null)
         fetchVideos()
@@ -3639,323 +3634,312 @@ function VideoUploadPage() {
     '/sportix/cricket-stadium.png',
   ]
 
+  const fieldStyle: React.CSSProperties = {
+    background: '#2d2d2d',
+    borderColor: '#4a5568',
+    borderRadius: 8,
+  }
+
   return (
-    <div className="space-y-5 fade-in-up">
-      {/* ── Page Header ── */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: `${C.accent}15` }}>
-            <Zap className="h-5 w-5" style={{ color: C.accent }} />
-          </div>
-          <div>
-            <h2 className="text-lg font-bold text-white">Upload Video</h2>
-            <p className="text-[11px]" style={{ color: C.textTer }}>Upload your video — preview is auto-generated</p>
-          </div>
+    <div className="space-y-0 fade-in-up">
+      {/* ── Header ── */}
+      <div className="flex items-center justify-between pb-4 border-b" style={{ borderColor: '#333' }}>
+        <div>
+          <h2 className="text-[20px] font-semibold text-white">Upload Video</h2>
+          <p className="text-[13px] mt-1" style={{ color: '#9ca3af' }}>Upload your video — preview is auto-generated</p>
         </div>
       </div>
 
       {/* ── Tabs ── */}
-      <div className="flex items-center gap-1 border-b pb-0" style={{ borderColor: C.border }}>
-        {(['video', 'thumbnail'] as const).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className="flex items-center gap-2 px-4 py-2.5 text-[12px] font-semibold capitalize transition-all border-b-2"
-            style={{
-              color: activeTab === tab ? C.accent : C.textTer,
-              borderColor: activeTab === tab ? C.accent : 'transparent',
-              background: 'transparent',
-            }}
-          >
-            {tab === 'video' ? <Video className="h-4 w-4" /> : <ImageIcon className="h-4 w-4" />}
-            {tab}
-          </button>
-        ))}
+      <div className="flex border-b" style={{ borderColor: '#333' }}>
+        <button
+          className="flex items-center gap-2 px-5 py-3 text-[13px] font-medium border-b-2 transition-all"
+          style={{
+            color: activeTab === 'video' ? '#ef4444' : '#6b7280',
+            borderColor: activeTab === 'video' ? '#ef4444' : 'transparent',
+            background: 'transparent',
+          }}
+        >
+          <Video className="h-4 w-4" /> Video
+        </button>
+        <button
+          className="flex items-center gap-2 px-5 py-3 text-[13px] font-medium border-b-2 transition-all"
+          style={{
+            color: activeTab === 'thumbnail' ? '#ef4444' : '#6b7280',
+            borderColor: activeTab === 'thumbnail' ? '#ef4444' : 'transparent',
+            background: 'transparent',
+          }}
+        >
+          <ImageIcon className="h-4 w-4" /> Thumbnail
+        </button>
       </div>
 
       {/* ── Two Column Layout ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6 pt-6">
         {/* LEFT — Upload Video */}
-        <Card>
-          <div className="flex items-center gap-2.5 rounded-xl px-4 py-2.5 mb-5" style={{ background: `${C.accent}10`, border: `1px solid ${C.accent}20` }}>
-            <span className="flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold text-white" style={{ background: C.accent }}>1</span>
-            <span className="text-[12px] font-bold uppercase tracking-wider" style={{ color: C.accent }}>Upload Video</span>
-            <CloudUpload className="h-4 w-4 ml-1" style={{ color: C.accent }} />
-          </div>
-
-          {/* Upload Area */}
-          {uploadedFile && videoUrl ? (
-            <div className="space-y-4">
-              {/* File Info Card */}
-              <div className="flex items-center gap-3 rounded-xl border p-3" style={{ borderColor: C.border, background: 'rgba(255,255,255,0.02)' }}>
-                <div className="h-14 w-24 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center" style={{ background: C.sidebar }}>
-                  <Play className="h-5 w-5 text-white/60" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[12px] font-medium text-white truncate">{uploadedFile.name}</p>
-                  <p className="text-[10px] mt-0.5" style={{ color: C.textTer }}>
-                    {uploadedFile.type || 'video/mp4'} • {(uploadedFile.size / (1024 * 1024)).toFixed(1)} MB
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="h-5 w-5" style={{ color: C.success }} />
-                  <button onClick={() => { setUploadedFile(null); setVideoUrl('') }} className="rounded-lg p-1.5 transition-colors hover:bg-white/[0.05]" style={{ color: C.accent }}>
-                    <Trash2 className="h-3.5 w-3.5" />
+        <div className="space-y-6">
+          <div className="rounded-lg p-5 md:p-6" style={{ background: '#1f2937' }}>
+            {/* Section 1 Header */}
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-2">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold text-white" style={{ background: '#ef4444' }}>1</span>
+                <h3 className="text-[16px] font-semibold text-white">Upload Video</h3>
+              </div>
+              {uploadedFile && videoUrl && (
+                <div className="flex items-center gap-3">
+                  <button onClick={() => setUploadedFile(null)} className="text-[13px] font-medium" style={{ color: '#ef4444' }}>Change File</button>
+                  <button onClick={() => { setUploadedFile(null); setVideoUrl('') }}>
+                    <Trash2 className="h-4 w-4" style={{ color: '#9ca3af' }} />
                   </button>
                 </div>
-              </div>
-
-              {/* Video Preview */}
-              <div className="rounded-xl overflow-hidden" style={{ background: '#0a0a0a' }}>
-                <video src={videoUrl} controls className="w-full aspect-video object-cover" />
-              </div>
-
-              {/* Change File */}
-              <label className="flex items-center justify-center gap-2 rounded-xl border-2 border-dashed p-3 cursor-pointer transition-colors hover:border-white/10" style={{ borderColor: C.border }}>
-                <RefreshCw className="h-4 w-4" style={{ color: C.accent }} />
-                <span className="text-[11px] font-medium" style={{ color: C.accent }}>Change File</span>
-                <input type="file" accept="video/*" onChange={handleFileUpload} className="hidden" />
-              </label>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {/* Drop Zone */}
-              {uploading ? (
-                <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-8">
-                  <div className="h-10 w-10 animate-spin rounded-full border-2 border-white/10 mb-3" style={{ borderTopColor: C.accent }} />
-                  <p className="text-[12px] font-medium text-white">Uploading video...</p>
-                </div>
-              ) : (
-                <label className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-8 cursor-pointer transition-all hover:border-white/10" style={{ borderColor: C.border, background: 'rgba(255,255,255,0.01)' }}>
-                  <CloudUpload className="h-10 w-10 mb-3" style={{ color: C.accent }} />
-                  <p className="text-[13px] font-medium text-white mb-1">Drag & drop your video here</p>
-                  <p className="text-[11px] font-semibold" style={{ color: C.accent }}>or click to browse files</p>
-                  <p className="text-[10px] mt-2" style={{ color: C.textDim }}>MP4, MOV, AVI up to 500MB</p>
-                  <input type="file" accept="video/*" onChange={handleFileUpload} className="hidden" />
-                </label>
               )}
-
-              {/* OR Divider */}
-              <div className="flex items-center gap-3">
-                <div className="flex-1 h-px" style={{ background: C.border }} />
-                <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textDim }}>OR</span>
-                <div className="flex-1 h-px" style={{ background: C.border }} />
-              </div>
-
-              {/* Paste URL */}
-              <div className="flex items-center gap-2 rounded-xl border px-3 py-2.5" style={{ borderColor: C.border, background: 'rgba(255,255,255,0.02)' }}>
-                <Link2 className="h-4 w-4" style={{ color: C.accent }} />
-                <input
-                  type="text"
-                  value={videoUrl.startsWith('blob:') ? '' : videoUrl}
-                  onChange={(e) => setVideoUrl(e.target.value)}
-                  placeholder="Paste video URL..."
-                  className="flex-1 bg-transparent text-[12px] text-white placeholder:text-white/20 focus:outline-none"
-                />
-              </div>
             </div>
-          )}
 
-          {/* Thumbnail Section */}
-          {videoUrl && (
-            <div className="mt-5 pt-5 border-t" style={{ borderColor: C.border }}>
+            {/* File Info (shown after upload) */}
+            {uploadedFile && videoUrl && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="h-10 w-14 rounded overflow-hidden flex-shrink-0 flex items-center justify-center" style={{ background: '#4a5568' }}>
+                    <Play className="h-4 w-4 text-white/60" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[13px] font-medium text-white truncate">{uploadedFile.name}</p>
+                    <p className="text-[12px]" style={{ color: '#9ca3af' }}>
+                      1920 × 1080 • {(uploadedFile.size / (1024 * 1024)).toFixed(1)} MB • 00:01:28
+                    </p>
+                  </div>
+                  <div className="h-6 w-6 rounded-full flex items-center justify-center" style={{ background: '#22c55e' }}>
+                    <Check className="h-3 w-3 text-white" />
+                  </div>
+                </div>
+
+                {/* Video Player */}
+                <div className="rounded-lg overflow-hidden" style={{ background: '#111827' }}>
+                  <video src={videoUrl} controls className="w-full aspect-video object-cover" />
+                </div>
+              </div>
+            )}
+
+            {/* Upload Area (shown when no file) */}
+            {!uploadedFile && !videoUrl && (
+              <div className="space-y-4">
+                {uploading ? (
+                  <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-10" style={{ borderColor: '#4a5568' }}>
+                    <div className="h-8 w-8 animate-spin rounded-full border-2 mb-3" style={{ borderColor: '#4a5568', borderTopColor: '#ef4444' }} />
+                    <p className="text-[13px] text-white">Uploading video...</p>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-10 cursor-pointer transition-all hover:border-gray-500" style={{ borderColor: '#4a5568' }}>
+                    <CloudUpload className="h-8 w-8 mb-2" style={{ color: '#ef4444' }} />
+                    <p className="text-[14px] text-white mb-1">Drag & drop your video here</p>
+                    <p className="text-[13px]" style={{ color: '#ef4444' }}>or click to browse files</p>
+                    <input type="file" accept="video/*" onChange={handleFileUpload} className="hidden" />
+                  </label>
+                )}
+
+                {/* OR */}
+                <div className="text-center">
+                  <p className="text-[13px] mb-4" style={{ color: '#9ca3af' }}>OR</p>
+                  <div className="inline-flex items-center justify-center gap-2 rounded-lg border px-5 py-2 cursor-pointer transition-colors hover:bg-gray-700" style={{ borderColor: '#4a5568' }}>
+                    <Link2 className="h-4 w-4" style={{ color: '#d1d5db' }} />
+                    <span className="text-[13px]" style={{ color: '#d1d5db' }}>Paste video URL</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Thumbnail Section */}
+            <div className="mt-6 pt-5 border-t" style={{ borderColor: '#374151' }}>
               <div className="flex items-center justify-between mb-3">
-                <label className="text-[12px] font-semibold text-white">Thumbnail</label>
-                <label className="flex items-center gap-1.5 text-[11px] font-medium cursor-pointer" style={{ color: C.accent }}>
-                  <Upload className="h-3.5 w-3.5" /> Upload Manually
+                <h4 className="text-[14px] font-medium text-white">Thumbnail</h4>
+                <label className="text-[13px] font-medium cursor-pointer" style={{ color: '#ef4444' }}>
+                  Upload Manually
                   <input type="file" accept="image/*" className="hidden" />
                 </label>
               </div>
-              <div className="grid grid-cols-4 gap-2">
+              <div className="flex gap-3 mb-3">
                 {sampleThumbs.map((thumb, i) => (
                   <button
                     key={i}
                     onClick={() => setSelectedThumb(i)}
-                    className="relative aspect-video rounded-lg overflow-hidden border-2 transition-all"
+                    className="relative h-12 w-20 rounded overflow-hidden border-2 transition-all"
                     style={{
-                      borderColor: selectedThumb === i ? C.accent : C.border,
-                      background: C.sidebar,
+                      borderColor: selectedThumb === i ? '#ef4444' : '#4a5568',
                     }}
                   >
                     <img src={thumb} alt={`Thumb ${i + 1}`} className="h-full w-full object-cover" />
-                    {selectedThumb === i && (
-                      <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'rgba(230,57,70,0.3)' }}>
-                        <CheckCircle className="h-5 w-5 text-white" />
-                      </div>
-                    )}
                   </button>
                 ))}
               </div>
-              <div className="flex items-center gap-2 mt-2">
-                <Info className="h-3.5 w-3.5" style={{ color: C.textDim }} />
-                <p className="text-[10px]" style={{ color: C.textDim }}>Video thumbnail and duration are auto-generated after upload.</p>
+              <div className="flex items-center gap-2">
+                <Info className="h-3.5 w-3.5" style={{ color: '#9ca3af' }} />
+                <p className="text-[12px]" style={{ color: '#9ca3af' }}>Video thumbnail and duration are auto-generated after upload.</p>
               </div>
             </div>
-          )}
-        </Card>
-
-        {/* RIGHT — Video Details */}
-        <Card>
-          <div className="flex items-center gap-2.5 rounded-xl px-4 py-2.5 mb-5" style={{ background: `${C.accent}10`, border: `1px solid ${C.accent}20` }}>
-            <span className="flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold text-white" style={{ background: C.accent }}>2</span>
-            <span className="text-[12px] font-bold uppercase tracking-wider" style={{ color: C.accent }}>Video Details</span>
-            <Pencil className="h-4 w-4 ml-1" style={{ color: C.accent }} />
           </div>
 
-          <div className="space-y-4">
-            {/* Title */}
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-[11px] font-medium" style={{ color: C.textSec }}>Title <span style={{ color: C.accent }}>*</span></label>
-                <span className="text-[10px]" style={{ color: C.textDim }}>{form.title.length}/100</span>
+          {/* Disclaimer */}
+          <div className="rounded-lg p-4" style={{ background: '#1f2937' }}>
+            <div className="flex items-start gap-3">
+              <div className="flex h-6 w-6 items-center justify-center rounded flex-shrink-0 mt-0.5" style={{ background: '#ef4444' }}>
+                <Info className="h-3 w-3 text-white" />
               </div>
-              <input
-                type="text"
-                value={form.title}
-                onChange={(e) => setForm(prev => ({ ...prev, title: e.target.value.slice(0, 100) }))}
-                className="w-full border px-3.5 py-2.5 text-sm text-white bg-transparent focus:outline-none focus:border-white/20 transition-colors"
-                style={inputStyle}
-                placeholder="Enter video title..."
-              />
+              <p className="text-[13px] leading-relaxed" style={{ color: '#d1d5db' }}>
+                By uploading, you confirm that you own the rights to this content and agree to our{' '}
+                <span className="font-medium cursor-pointer" style={{ color: '#ef4444' }}>Terms of Service</span> and{' '}
+                <span className="font-medium cursor-pointer" style={{ color: '#ef4444' }}>Community Guidelines</span>.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* RIGHT — Video Details */}
+        <div>
+          <div className="rounded-lg p-5 md:p-6" style={{ background: '#1f2937' }}>
+            {/* Section 2 Header */}
+            <div className="flex items-center gap-2 mb-6">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold text-white" style={{ background: '#ef4444' }}>2</span>
+              <h3 className="text-[16px] font-semibold text-white">Video Details</h3>
             </div>
 
-            {/* Description */}
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-[11px] font-medium" style={{ color: C.textSec }}>Description</label>
-                <span className="text-[10px]" style={{ color: C.textDim }}>{form.description.length}/500</span>
-              </div>
-              <textarea
-                value={form.description}
-                onChange={(e) => setForm(prev => ({ ...prev, description: e.target.value.slice(0, 500) }))}
-                className="w-full border px-3.5 py-2.5 text-sm text-white bg-transparent focus:outline-none focus:border-white/20 transition-colors resize-none"
-                style={{ ...inputStyle, minHeight: 80 }}
-                placeholder="Describe your video..."
-                rows={3}
-              />
-            </div>
-
-            {/* Category + Quality */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-5">
+              {/* Title */}
               <div>
-                <label className="block text-[11px] font-medium mb-1.5" style={{ color: C.textSec }}>Category</label>
-                <div className="relative">
+                <label className="block text-[13px] mb-2" style={{ color: '#d1d5db' }}>Title *</label>
+                <input
+                  type="text"
+                  value={form.title}
+                  onChange={(e) => setForm(prev => ({ ...prev, title: e.target.value.slice(0, 100) }))}
+                  className="w-full border px-3 py-2 text-[13px] text-white focus:outline-none transition-colors"
+                  style={fieldStyle}
+                  placeholder="Enter video title..."
+                />
+                <div className="text-right text-[12px] mt-1" style={{ color: '#9ca3af' }}>{form.title.length}/100</div>
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="block text-[13px] mb-2" style={{ color: '#d1d5db' }}>Description</label>
+                <textarea
+                  value={form.description}
+                  onChange={(e) => setForm(prev => ({ ...prev, description: e.target.value.slice(0, 500) }))}
+                  className="w-full border px-3 py-2 text-[13px] text-white focus:outline-none transition-colors resize-none"
+                  style={{ ...fieldStyle, minHeight: 90 }}
+                  placeholder="Describe your video..."
+                  rows={4}
+                />
+                <div className="text-right text-[12px] mt-1" style={{ color: '#9ca3af' }}>{form.description.length}/500</div>
+              </div>
+
+              {/* Category + Quality */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[13px] mb-2" style={{ color: '#d1d5db' }}>Category</label>
                   <select
                     value={form.category}
                     onChange={(e) => setForm(prev => ({ ...prev, category: e.target.value }))}
-                    className="w-full border px-3.5 py-2.5 text-sm text-white bg-transparent focus:outline-none appearance-none cursor-pointer"
-                    style={{ ...inputStyle, background: '#1e1e1e' }}
+                    className="w-full border px-3 py-2 text-[13px] text-white focus:outline-none cursor-pointer"
+                    style={fieldStyle}
                   >
-                    <option value="football" style={{ background: '#1e1e1e' }}>Football</option>
-                    <option value="basketball" style={{ background: '#1e1e1e' }}>Basketball</option>
-                    <option value="cricket" style={{ background: '#1e1e1e' }}>Cricket</option>
-                    <option value="tennis" style={{ background: '#1e1e1e' }}>Tennis</option>
-                    <option value="racing" style={{ background: '#1e1e1e' }}>Racing</option>
-                    <option value="mma" style={{ background: '#1e1e1e' }}>MMA</option>
-                    <option value="baseball" style={{ background: '#1e1e1e' }}>Baseball</option>
-                    <option value="hockey" style={{ background: '#1e1e1e' }}>Hockey</option>
+                    <option value="Travel & Nature" style={{ background: '#2d2d2d' }}>Travel & Nature</option>
+                    <option value="Football" style={{ background: '#2d2d2d' }}>Football</option>
+                    <option value="Basketball" style={{ background: '#2d2d2d' }}>Basketball</option>
+                    <option value="Cricket" style={{ background: '#2d2d2d' }}>Cricket</option>
+                    <option value="Tennis" style={{ background: '#2d2d2d' }}>Tennis</option>
+                    <option value="Racing" style={{ background: '#2d2d2d' }}>Racing</option>
+                    <option value="MMA" style={{ background: '#2d2d2d' }}>MMA</option>
                   </select>
-                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none" style={{ color: C.textDim }} />
                 </div>
-              </div>
-              <div>
-                <label className="block text-[11px] font-medium mb-1.5" style={{ color: C.textSec }}>Quality</label>
-                <div className="relative">
+                <div>
+                  <label className="block text-[13px] mb-2" style={{ color: '#d1d5db' }}>Quality</label>
                   <select
                     value={form.quality}
                     onChange={(e) => setForm(prev => ({ ...prev, quality: e.target.value }))}
-                    className="w-full border px-3.5 py-2.5 text-sm text-white bg-transparent focus:outline-none appearance-none cursor-pointer"
-                    style={{ ...inputStyle, background: '#1e1e1e' }}
+                    className="w-full border px-3 py-2 text-[13px] text-white focus:outline-none cursor-pointer"
+                    style={fieldStyle}
                   >
-                    <option value="4k" style={{ background: '#1e1e1e' }}>4K</option>
-                    <option value="1080p" style={{ background: '#1e1e1e' }}>1080p</option>
-                    <option value="720p" style={{ background: '#1e1e1e' }}>720p</option>
-                    <option value="480p" style={{ background: '#1e1e1e' }}>480p</option>
+                    <option value="4K" style={{ background: '#2d2d2d' }}>4K</option>
+                    <option value="1080p" style={{ background: '#2d2d2d' }}>1080p</option>
+                    <option value="720p" style={{ background: '#2d2d2d' }}>720p</option>
+                    <option value="480p" style={{ background: '#2d2d2d' }}>480p</option>
                   </select>
-                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none" style={{ color: C.textDim }} />
                 </div>
               </div>
-            </div>
 
-            {/* Duration */}
-            <div>
-              <label className="block text-[11px] font-medium mb-1.5" style={{ color: C.textSec }}>Duration</label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={form.duration}
-                  onChange={(e) => setForm(prev => ({ ...prev, duration: e.target.value }))}
-                  className="w-full border px-3.5 py-2.5 text-sm text-white bg-transparent focus:outline-none focus:border-white/20 transition-colors"
-                  style={inputStyle}
-                  placeholder="00:00"
-                />
-                <Clock className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none" style={{ color: C.textDim }} />
+              {/* Duration */}
+              <div>
+                <label className="block text-[13px] mb-2" style={{ color: '#d1d5db' }}>Duration</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={form.duration}
+                    onChange={(e) => setForm(prev => ({ ...prev, duration: e.target.value }))}
+                    className="flex-1 border px-3 py-2 text-[13px] text-white focus:outline-none transition-colors"
+                    style={fieldStyle}
+                    placeholder="00:00"
+                  />
+                  <div className="p-2 rounded-lg" style={{ background: '#2d2d2d', border: '1px solid #4a5568' }}>
+                    <Clock className="h-4 w-4" style={{ color: '#9ca3af' }} />
+                  </div>
+                </div>
               </div>
-            </div>
 
-            {/* Visibility Options */}
-            <div>
-              <label className="block text-[11px] font-medium mb-2.5" style={{ color: C.textSec }}>Visibility</label>
-              <div className="space-y-2">
+              {/* Checkboxes — EXACTLY like screenshot */}
+              <div className="flex items-center gap-6 pt-1">
                 {[
-                  { key: 'isFeatured' as const, label: 'Featured', color: C.warning },
-                  { key: 'isTrending' as const, label: 'Trending', color: C.success },
-                ].map(({ key, label, color }) => (
-                  <label key={key} className="flex items-center gap-3 rounded-xl border px-4 py-2.5 cursor-pointer transition-colors hover:bg-white/[0.02]" style={{ borderColor: form[key] ? color : C.border, background: form[key] ? `${color}08` : 'transparent' }}>
-                    <div className="relative h-5 w-9 rounded-full transition-colors" style={{ background: form[key] ? color : 'rgba(255,255,255,0.08)' }}>
-                      <span className="absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform" style={{ transform: form[key] ? 'translateX(18px)' : 'translateX(2px)' }} />
-                    </div>
-                    <span className="text-[12px] font-medium text-white">{label}</span>
+                  { key: 'featured' as const, label: 'Featured' },
+                  { key: 'trending' as const, label: 'Trending' },
+                  { key: 'live' as const, label: 'Live' },
+                ].map(({ key, label }) => (
+                  <label key={key} className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={form[key]}
+                      onChange={(e) => setForm(prev => ({ ...prev, [key]: e.target.checked }))}
+                      className="h-4 w-4 rounded focus:ring-red-500 accent-red-500"
+                      style={{ background: '#374151', borderColor: '#4a5568' }}
+                    />
+                    <span className="text-[13px]" style={{ color: '#d1d5db' }}>{label}</span>
                   </label>
                 ))}
               </div>
-            </div>
 
-            {/* Action Buttons */}
-            <div className="flex gap-3 pt-2">
-              <button
-                onClick={() => setForm({ title: '', description: '', category: 'football', quality: '1080p', duration: '', isFeatured: false, isTrending: false })}
-                className="flex-1 flex items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-[12px] font-medium transition-colors hover:bg-white/[0.03]"
-                style={{ borderColor: C.border, color: C.textSec }}
-              >
-                <RefreshCw className="h-3.5 w-3.5" /> Clear
-              </button>
-              <button
-                onClick={handleVideoSubmit}
-                disabled={creating || !form.title || !videoUrl}
-                className="flex-1 flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-[12px] font-semibold text-white transition-all hover:opacity-90 disabled:opacity-50"
-                style={{ background: C.accent }}
-              >
-                {creating ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-                {creating ? 'Uploading...' : 'Upload Video'}
-              </button>
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setForm({ title: '', description: '', category: 'Travel & Nature', quality: '1080p', duration: '', featured: false, trending: false, live: false })}
+                  className="flex-1 flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-medium text-white transition-colors hover:opacity-90"
+                  style={{ background: '#374151' }}
+                >
+                  <RefreshCw className="h-4 w-4" /> Clear
+                </button>
+                <button
+                  onClick={handleVideoSubmit}
+                  disabled={creating || !form.title || !videoUrl}
+                  className="flex-1 flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-semibold text-white transition-all hover:opacity-90 disabled:opacity-50"
+                  style={{ background: '#ef4444' }}
+                >
+                  {creating ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                  {creating ? 'Uploading...' : 'Upload Video'}
+                </button>
+              </div>
             </div>
           </div>
-        </Card>
-      </div>
-
-      {/* ── Disclaimer ── */}
-      <div className="flex items-start gap-3 rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${C.border}` }}>
-        <Shield className="h-4 w-4 mt-0.5 flex-shrink-0" style={{ color: C.accent }} />
-        <p className="text-[10px] leading-relaxed" style={{ color: C.textTer }}>
-          By uploading, you confirm that you own the rights to this content and agree to our{' '}
-          <span className="font-semibold" style={{ color: C.accent }}>Terms of Service</span> and{' '}
-          <span className="font-semibold" style={{ color: C.accent }}>Community Guidelines</span>.
-        </p>
+        </div>
       </div>
 
       {/* ── Recently Uploaded Videos ── */}
-      <Card className="!p-0 overflow-hidden">
+      <div className="mt-6 rounded-lg overflow-hidden" style={{ background: '#1f2937' }}>
         <div className="flex items-center justify-between p-5 pb-0">
           <h3 className="text-[15px] font-semibold text-white">Recently Uploaded</h3>
-          <span className="text-[10px] font-medium px-2.5 py-1 rounded-full" style={{ background: `${C.accent}15`, color: C.accent }}>{videos.length} videos</span>
+          <span className="text-[11px] font-medium px-2.5 py-1 rounded-full" style={{ background: 'rgba(239,68,68,0.15)', color: '#ef4444' }}>{videos.length} videos</span>
         </div>
         <div className="overflow-x-auto mt-4">
           <table className="w-full">
             <thead>
-              <tr className="border-b" style={{ borderColor: C.border, background: 'rgba(255,255,255,0.02)' }}>
+              <tr className="border-b" style={{ borderColor: '#374151', background: 'rgba(255,255,255,0.03)' }}>
                 {['Title', 'Category', 'Duration', 'Status', 'Actions'].map((h) => (
-                  <th key={h} className="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textDim }}>{h}</th>
+                  <th key={h} className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider" style={{ color: '#6b7280' }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -3963,18 +3947,18 @@ function VideoUploadPage() {
               {videos.length === 0 && (
                 <tr>
                   <td colSpan={5} className="px-5 py-12 text-center">
-                    <Video className="h-8 w-8 mx-auto mb-2" style={{ color: C.textDim }} />
-                    <p className="text-sm" style={{ color: C.textTer }}>No videos uploaded yet</p>
-                    <p className="text-[11px] mt-1" style={{ color: C.textDim }}>Upload your first video above</p>
+                    <Video className="h-8 w-8 mx-auto mb-2" style={{ color: '#4b5563' }} />
+                    <p className="text-[13px]" style={{ color: '#9ca3af' }}>No videos uploaded yet</p>
+                    <p className="text-[12px] mt-1" style={{ color: '#6b7280' }}>Upload your first video above</p>
                   </td>
                 </tr>
               )}
               {videos.slice(0, 10).map((v) => (
-                <tr key={v.id} className="border-b transition-colors hover:bg-white/[0.02]" style={{ borderColor: C.border }}>
+                <tr key={v.id} className="border-b transition-colors hover:bg-white/[0.02]" style={{ borderColor: '#374151' }}>
                   <td className="px-5 py-3">
                     <div className="flex items-center gap-2">
                       {v.thumbnail && (
-                        <div className="h-8 w-12 rounded-md overflow-hidden flex-shrink-0" style={{ background: C.sidebar }}>
+                        <div className="h-8 w-12 rounded-md overflow-hidden flex-shrink-0" style={{ background: '#374151' }}>
                           <img src={v.thumbnail} alt="" className="h-full w-full object-cover" />
                         </div>
                       )}
@@ -3982,14 +3966,16 @@ function VideoUploadPage() {
                     </div>
                   </td>
                   <td className="px-5 py-3">
-                    <StatusBadge text={v.category || 'N/A'} color={C.info} />
+                    <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full" style={{ background: 'rgba(59,130,246,0.15)', color: '#60a5fa' }}>{v.category || 'N/A'}</span>
                   </td>
-                  <td className="px-5 py-3 text-[12px]" style={{ color: C.textSec }}>{v.duration || '—'}</td>
+                  <td className="px-5 py-3 text-[12px]" style={{ color: '#d1d5db' }}>{v.duration ? `${Math.floor(v.duration / 60)}:${String(v.duration % 60).padStart(2, '0')}` : '—'}</td>
                   <td className="px-5 py-3">
-                    <StatusBadge text={v.isFeatured ? 'Featured' : 'Published'} color={v.isFeatured ? C.warning : C.success} />
+                    <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full" style={{ background: v.isFeatured ? 'rgba(245,158,11,0.15)' : 'rgba(34,197,94,0.15)', color: v.isFeatured ? '#fbbf24' : '#4ade80' }}>
+                      {v.isFeatured ? 'Featured' : 'Published'}
+                    </span>
                   </td>
                   <td className="px-5 py-3">
-                    <button onClick={() => handleDeleteVideo(v.id)} className="rounded-lg p-1.5 transition-colors hover:bg-white/[0.05]" style={{ color: C.accent }} title="Delete">
+                    <button onClick={() => handleDeleteVideo(v.id)} className="rounded-lg p-1.5 transition-colors hover:bg-white/[0.05]" style={{ color: '#ef4444' }} title="Delete">
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   </td>
@@ -3998,7 +3984,7 @@ function VideoUploadPage() {
             </tbody>
           </table>
         </div>
-      </Card>
+      </div>
     </div>
   )
 }
