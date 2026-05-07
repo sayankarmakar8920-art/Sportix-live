@@ -79,6 +79,8 @@ import {
   ImageIcon as ImageIconLucide,
 } from 'lucide-react'
 
+import VideoAdsManager from './VideoAdsManager'
+
 /* ═══════════════════════════════════════════════════════════════
    DESIGN SYSTEM
    ═══════════════════════════════════════════════════════════════ */
@@ -7234,7 +7236,7 @@ function renderPage(page: AdminPage): React.ReactNode {
   if (page === 'create-ad') return <CreateNewAdSection />
   if (page === 'hero-ads') return <HeroFooterAdsPage />
   if (page === 'video-ads') return <VideoAdsAdminPage />
-  if (page === 'video-ads-analytics') return <VideoAdsAnalyticsPage />
+  if (page === 'video-ads-analytics') return <VideoAdsManager />
   if (page === 'rtmp-config') return <RTMPConfigPage />
   return null
 }
