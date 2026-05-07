@@ -81,22 +81,22 @@ import {
    ═══════════════════════════════════════════════════════════════ */
 
 const C = {
-  bg: '#121212',
-  sidebar: '#1a1a1a',
-  card: '#1e1e1e',
-  cardHover: '#242424',
-  border: 'rgba(255,255,255,0.06)',
-  borderHover: 'rgba(255,255,255,0.10)',
-  accent: '#e63946',
-  accentDim: 'rgba(230,57,70,0.15)',
-  accentGlow: 'rgba(230,57,70,0.25)',
-  success: '#2ecc71',
-  warning: '#f39c12',
-  info: '#3498db',
+  bg: '#141414',
+  sidebar: '#181818',
+  card: '#1a1a1a',
+  cardHover: '#222222',
+  border: 'rgba(255,255,255,0.08)',
+  borderHover: 'rgba(255,255,255,0.12)',
+  accent: '#E50914',
+  accentDim: 'rgba(229,9,20,0.15)',
+  accentGlow: 'rgba(229,9,20,0.30)',
+  success: '#46d369',
+  warning: '#f5c518',
+  info: '#0071eb',
   purple: '#9b59b6',
   text: '#ffffff',
-  textSec: '#b0b0b0',
-  textTer: '#888888',
+  textSec: '#b3b3b3',
+  textTer: '#808080',
   textDim: '#555555',
 }
 
@@ -4380,7 +4380,7 @@ export default function AdminPanel() {
     <div className="min-h-screen flex" style={{ background: C.bg }}>
       {/* ─── Sidebar ─── */}
       <aside
-        className={`fixed top-0 left-0 z-50 flex h-screen flex-col border-r transition-transform duration-300 md:translate-x-0 ${
+        className={`fixed top-0 left-0 z-50 flex h-screen flex-col border-r transition-transform duration-300 lg:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
         style={{ width: 280, background: C.sidebar, borderColor: C.border }}
@@ -4396,7 +4396,7 @@ export default function AdminPanel() {
             </h1>
             <p className="text-[9px] font-semibold uppercase tracking-[0.2em]" style={{ color: C.textDim }}>Admin Panel</p>
           </div>
-          <button onClick={() => setSidebarOpen(false)} className="ml-auto md:hidden rounded-lg p-1 hover:bg-white/[0.05]">
+          <button onClick={() => setSidebarOpen(false)} className="ml-auto lg:hidden rounded-lg p-1 hover:bg-white/[0.05]">
             <X className="h-4 w-4" style={{ color: C.textTer }} />
           </button>
         </div>
@@ -4462,17 +4462,26 @@ export default function AdminPanel() {
 
       {/* ─── Sidebar Overlay (mobile) ─── */}
       {sidebarOpen && (
-        <div className="fixed inset-0 z-40 bg-black/60 md:hidden" onClick={() => setSidebarOpen(false)} />
+        <div className="fixed inset-0 z-40 bg-black/60 lg:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
       {/* ─── Main Content ─── */}
-      <div className="flex-1 md:ml-[280px] min-h-screen flex flex-col transition-all duration-300">
+      <div className="flex-1 lg:ml-[280px] min-h-screen flex flex-col transition-all duration-300">
         {/* ─── Top Header ─── */}
-        <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b px-4 lg:px-6" style={{ background: 'rgba(18,18,18,0.90)', backdropFilter: 'blur(20px)', borderColor: C.border }}>
-          {/* Hamburger (mobile) */}
+        <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b px-4 lg:px-6" style={{ background: 'rgba(20,20,20,0.92)', backdropFilter: 'blur(20px)', borderColor: C.border }}>
+          {/* Mobile Logo */}
+          <div className="flex items-center gap-2 md:hidden">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg" style={{ background: C.accent, boxShadow: `0 2px 10px ${C.accentGlow}` }}>
+              <Activity className="h-3.5 w-3.5 text-white" />
+            </div>
+            <h1 className="text-sm font-bold tracking-tight text-white">
+              SPORTIX<span style={{ color: C.accent }}> LIVE</span>
+            </h1>
+          </div>
+          {/* Hamburger (tablet only) */}
           <button
             onClick={() => setSidebarOpen(true)}
-            className="flex h-9 w-9 items-center justify-center rounded-xl transition-colors hover:bg-white/[0.05] md:hidden"
+            className="hidden md:flex lg:hidden h-9 w-9 items-center justify-center rounded-xl transition-colors hover:bg-white/[0.05]"
           >
             <Menu className="h-5 w-5" style={{ color: C.textSec }} />
           </button>
