@@ -41,18 +41,17 @@ export default function Header() {
     }, 400)
   }, [setCurrentView])
 
-  if (currentView === 'admin' || currentView === 'live-control-room') return null
+  const [today, setToday] = useState('')
+  if (today === '' && typeof window !== 'undefined') setToday(new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }))
 
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => { setMounted(true) }, [])
-  const today = mounted ? new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : ''
+  if (currentView === 'admin' || currentView === 'live-control-room') return null
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-white/[0.06] bg-[#141414]/90 backdrop-blur-xl">
       <div className="mx-auto flex h-14 items-center justify-between gap-4 px-4 lg:px-6">
         {/* Left: Date + Logo */}
         <div className="flex items-center gap-4">
-          <span className="hidden text-xs font-medium text-white/40 lg:flex items-center gap-1.5">
+          <span suppressHydrationWarning className="hidden text-xs font-medium text-white/40 lg:flex items-center gap-1.5">
             <Calendar className="h-3.5 w-3.5" />
             {today}
           </span>

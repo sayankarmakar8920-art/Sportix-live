@@ -81,6 +81,7 @@ import {
 
 import VideoAdsManager from './VideoAdsManager'
 import VideosPage from './VideosPage'
+import HeroFooterAdsManager from './HeroFooterAdsManager'
 
 /* ═══════════════════════════════════════════════════════════════
    DESIGN SYSTEM
@@ -7235,7 +7236,7 @@ function renderPage(page: AdminPage): React.ReactNode {
   if (page === 'replays') return <ReplaysManagerPage />
   if (page === 'ads-manager') return <AdsManagerPage />
   if (page === 'create-ad') return <CreateNewAdSection />
-  if (page === 'hero-ads') return <HeroFooterAdsPage />
+  if (page === 'hero-ads') return <HeroFooterAdsManager />
   if (page === 'video-ads') return <VideoAdsManager />
   if (page === 'video-ads-analytics') return <VideoAdsAnalyticsPage />
   if (page === 'rtmp-config') return <RTMPConfigPage />
