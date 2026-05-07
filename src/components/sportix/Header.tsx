@@ -22,19 +22,23 @@ export default function Header() {
   const handleLogoClick = useCallback(() => {
     clickCountRef.current += 1
 
+    // Clear previous timer
     if (clickTimerRef.current) clearTimeout(clickTimerRef.current)
-    clickTimerRef.current = setTimeout(() => {
-      clickCountRef.current = 0
-    }, 1200)
 
+    // 7 clicks = open admin panel instantly
     if (clickCountRef.current === 7) {
       clickCountRef.current = 0
-      if (clickTimerRef.current) clearTimeout(clickTimerRef.current)
       setCurrentView('admin')
       return
     }
 
-    window.location.reload()
+    // Wait 800ms to see if user keeps clicking — only reload if they stop before 7
+    clickTimerRef.current = setTimeout(() => {
+      if (clickCountRef.current > 0 && clickCountRef.current < 7) {
+        clickCountRef.current = 0
+        window.location.reload()
+      }
+    }, 800)
   }, [setCurrentView])
 
   if (currentView === 'admin' || currentView === 'live-control-room') return null
