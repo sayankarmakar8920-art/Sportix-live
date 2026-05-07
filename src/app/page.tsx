@@ -6,7 +6,8 @@ import ErrorBoundary from '@/components/ErrorBoundary'
 import Header from '@/components/sportix/Header'
 import Sidebar from '@/components/sportix/Sidebar'
 import LiveSlider from '@/components/sportix/LiveSlider'
-import HeroBanner from '@/components/sportix/HeroBanner'
+import HeroBannerAds from '@/components/sportix/HeroBannerAds'
+const FooterTopBanner = lazy(() => import('@/components/sportix/FooterTopBanner'))
 import CategoryTabs from '@/components/sportix/CategoryTabs'
 import VideoPlayer from '@/components/sportix/VideoPlayer'
 import BottomNav from '@/components/sportix/BottomNav'
@@ -904,8 +905,8 @@ export default function Home() {
           <CategoryTabs onFilter={setActiveFilter} />
         </div>
 
-        {/* Hero Banner — all screens */}
-        {featuredStream && <HeroBanner stream={featuredStream} />}
+        {/* Hero Banner Ads — responsive, video/image support */}
+        <HeroBannerAds featuredStream={featuredStream || null} />
 
         {/* Live Match Popular Slider */}
         <section>
@@ -1072,6 +1073,13 @@ export default function Home() {
           <main className="flex-1 overflow-y-auto pb-20 lg:pb-6">
             {renderMainContent()}
           </main>
+        </div>
+
+        {/* Footer Top Sponsored Banner */}
+        <div className="px-4 lg:px-6 mb-0 lg:mb-0">
+          <Suspense fallback={null}>
+            <FooterTopBanner />
+          </Suspense>
         </div>
 
         {/* Footer — desktop */}

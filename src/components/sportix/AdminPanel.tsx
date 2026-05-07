@@ -126,6 +126,7 @@ type AdminPage =
   | 'replays'
   | 'ads-manager'
   | 'create-ad'
+  | 'hero-ads'
   | 'rtmp-config'
 
 interface MenuSection {
@@ -158,6 +159,7 @@ const menuSections: MenuSection[] = [
       { id: 'banners', label: 'Banners', icon: ImageIcon },
       { id: 'ads-manager', label: 'Ads Manager', icon: Megaphone, badge: 'AD' },
       { id: 'create-ad', label: 'Create Ad', icon: Plus },
+      { id: 'hero-ads', label: 'Hero/Footer Ads', icon: Film, badge: 'NEW' },
     ],
   },
   {
@@ -1274,6 +1276,271 @@ function RevenuePage() {
           ))}
         </div>
       </Card>
+    </div>
+  )
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   HERO / FOOTER ADS MANAGEMENT PAGE
+   ═══════════════════════════════════════════════════════════════ */
+
+function HeroFooterAdsPage() {
+  const [ads, setAds] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [uploading, setUploading] = useState(false)
+  const [showForm, setShowForm] = useState(false)
+  const [formTab, setFormTab] = useState<'hero' | 'footer'>('hero')
+  const [form, setForm] = useState({ title: '', mediaUrl: '', targetUrl: '', type: 'image', category: '', deviceTarget: 'all' })
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [imgPreview, setImgPreview] = useState('')
+
+  const fetchAds = useCallback(async () => {
+    try {
+      setLoading(true)
+      const res = await fetch('/api/ads?active=true')
+      if (res.ok) {
+        const data = await res.json()
+        const adList = Array.isArray(data) ? data : data.ads || []
+        setAds(adList.filter((a: any) => a.position === 'hero' || a.position === 'footer'))
+      }
+    } catch { /* silent */ } finally { setLoading(false) }
+  }, [])
+
+  useEffect(() => { fetchAds() }, [fetchAds])
+
+  const handleSubmit = async () => {
+    if (!form.title || !form.mediaUrl) return
+    try {
+      setUploading(true)
+      const endpoint = formTab === 'hero' ? '/api/ads/hero' : '/api/ads/footer'
+      const method = editingId ? 'PUT' : 'POST'
+      const res = await fetch(editingId ? `/api/ads/${editingId}` : endpoint, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...form,
+          type: form.type || 'banner',
+          position: formTab,
+          priority: form.deviceTarget === 'desktop-only' ? 10 : form.deviceTarget === 'mobile-only' ? 5 : 0,
+        }),
+      })
+      if (res.ok) {
+        setForm({ title: '', mediaUrl: '', targetUrl: '', type: 'image', category: '', deviceTarget: 'all' })
+        setEditingId(null)
+        setShowForm(false)
+        fetchAds()
+      }
+    } catch { /* silent */ } finally { setUploading(false) }
+  }
+
+  const toggleActive = async (ad: any) => {
+    try {
+      await fetch(`/api/ads/${ad.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isActive: !ad.isActive }),
+      })
+      fetchAds()
+    } catch { /* silent */ }
+  }
+
+  const deleteAd = async (id: string) => {
+    try {
+      await fetch(`/api/ads/${id}`, { method: 'DELETE' })
+      fetchAds()
+    } catch { /* silent */ }
+  }
+
+  const heroAds = ads.filter((a: any) => a.position === 'hero')
+  const footerAds = ads.filter((a: any) => a.position === 'footer')
+
+  return (
+    <div className="space-y-5 fade-in-up">
+      <PageHeader title="Hero / Footer Ads" subtitle={`${ads.length} banner ads configured`} icon={<Film className="h-5 w-5" style={{ color: C.accent }} />} extra={
+        <button onClick={() => { setShowForm(true); setEditingId(null); setForm({ title: '', mediaUrl: '', targetUrl: '', type: 'image', category: '', deviceTarget: 'all' }) }} className="flex items-center gap-1.5 rounded-xl px-4 py-2 text-[12px] font-semibold text-white transition-all hover:opacity-90" style={{ background: C.accent }}>
+          <Upload className="h-3.5 w-3.5" /> New Ad
+        </button>
+      } />
+
+      {/* Create/Edit Form */}
+      {showForm && (
+        <Card>
+          <CardHeader title={editingId ? 'Edit Banner Ad' : 'Create Banner Ad'}>
+            <button onClick={() => { setShowForm(false); setEditingId(null) }} className="rounded-lg p-1 hover:bg-white/[0.05]" style={{ color: C.textTer }}><X className="h-4 w-4" /></button>
+          </CardHeader>
+          <div className="space-y-4">
+            {/* Position Tab */}
+            <div className="flex gap-2">
+              {(['hero', 'footer'] as const).map(tab => (
+                <button key={tab} onClick={() => setFormTab(tab)} className={`px-4 py-2 rounded-xl text-[12px] font-medium transition-all ${formTab === tab ? 'text-white' : 'text-white/40 hover:text-white/60'}`} style={{ background: formTab === tab ? C.accent : 'rgba(255,255,255,0.05)' }}>
+                  {tab === 'hero' ? '🎬 Hero Banner' : '📢 Footer Banner'}
+                </button>
+              ))}
+            </div>
+            {/* Title */}
+            <div>
+              <label className="text-[11px] font-medium mb-1.5 block" style={{ color: C.textSec }}>Ad Title</label>
+              <input type="text" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="e.g., Summer Sports Promo" className="w-full rounded-xl border bg-white/[0.03] px-4 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:ring-1" style={{ borderColor: C.border, focusRingColor: `${C.accent}40` }} />
+            </div>
+            {/* Media URL */}
+            <div>
+              <label className="text-[11px] font-medium mb-1.5 block" style={{ color: C.textSec }}>Media URL (image or video)</label>
+              <input type="text" value={form.mediaUrl} onChange={e => setForm(f => ({ ...f, mediaUrl: e.target.value }))} placeholder="https://example.com/banner.jpg" className="w-full rounded-xl border bg-white/[0.03] px-4 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:ring-1" style={{ borderColor: C.border, focusRingColor: `${C.accent}40` }} />
+              {form.mediaUrl && (form.mediaUrl.match(/\.(mp4|webm|mov)$/i) ? (
+                <p className="mt-1 text-[10px]" style={{ color: C.info }}>📹 Video detected — will autoplay muted</p>
+              ) : (
+                <p className="mt-1 text-[10px]" style={{ color: C.success }}>🖼️ Image detected — will display as banner</p>
+              ))}
+            </div>
+            {/* Target URL */}
+            <div>
+              <label className="text-[11px] font-medium mb-1.5 block" style={{ color: C.textSec }}>Target URL (optional)</label>
+              <input type="text" value={form.targetUrl} onChange={e => setForm(f => ({ ...f, targetUrl: e.target.value }))} placeholder="https://example.com/offer" className="w-full rounded-xl border bg-white/[0.03] px-4 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:ring-1" style={{ borderColor: C.border, focusRingColor: `${C.accent}40` }} />
+            </div>
+            {/* Type + Device Target */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[11px] font-medium mb-1.5 block" style={{ color: C.textSec }}>Media Type</label>
+                <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))} className="w-full rounded-xl border bg-white/[0.03] px-4 py-2.5 text-sm text-white focus:outline-none" style={{ borderColor: C.border }}>
+                  <option value="image">Image Banner</option>
+                  <option value="video">Video Ad</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-[11px] font-medium mb-1.5 block" style={{ color: C.textSec }}>Device Target</label>
+                <select value={form.deviceTarget} onChange={e => setForm(f => ({ ...f, deviceTarget: e.target.value }))} className="w-full rounded-xl border bg-white/[0.03] px-4 py-2.5 text-sm text-white focus:outline-none" style={{ borderColor: C.border }}>
+                  <option value="all">All Devices</option>
+                  <option value="desktop-only">Desktop Only</option>
+                  <option value="mobile-only">Mobile Only</option>
+                </select>
+              </div>
+            </div>
+            {/* Preview */}
+            {form.mediaUrl && (
+              <div className="rounded-xl overflow-hidden border" style={{ borderColor: C.border, background: 'rgba(255,255,255,0.02)' }}>
+                <p className="text-[10px] font-medium px-3 pt-3" style={{ color: C.textDim }}>PREVIEW</p>
+                <div className="p-3">
+                  {form.mediaUrl.match(/\.(mp4|webm|mov)$/i) ? (
+                    <video src={form.mediaUrl} muted autoPlay loop playsInline className="w-full rounded-lg object-cover" style={{ maxHeight: 200 }} />
+                  ) : (
+                    <img src={form.mediaUrl} alt="Preview" className="w-full rounded-lg object-cover" style={{ maxHeight: 200 }} onError={() => {}} loading="lazy" />
+                  )}
+                </div>
+              </div>
+            )}
+            <div className="flex gap-2 pt-2">
+              <button onClick={handleSubmit} disabled={uploading || !form.title || !form.mediaUrl} className="flex items-center gap-1.5 rounded-xl px-5 py-2.5 text-[12px] font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40" style={{ background: C.accent }}>
+                {uploading ? 'Saving...' : editingId ? 'Update Ad' : 'Create Ad'}
+              </button>
+              <button onClick={() => { setShowForm(false); setEditingId(null) }} className="rounded-xl border px-4 py-2.5 text-[12px] font-medium transition-all hover:bg-white/[0.05]" style={{ borderColor: C.border, color: C.textSec }}>Cancel</button>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Hero Ads Section */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <h3 className="text-[15px] font-bold text-white">🎬 Hero Banner Ads</h3>
+            <span className="rounded-md px-2 py-0.5 text-[10px] font-bold text-white" style={{ background: `${C.accent}40` }}>{heroAds.length}</span>
+          </div>
+          <button onClick={() => { setFormTab('hero'); setShowForm(true); setEditingId(null) }} className="text-[11px] font-medium" style={{ color: C.accent }}>+ Add</button>
+        </div>
+        {loading ? (
+          <div className="space-y-3">{[1,2].map(i => <div key={i} className="h-20 rounded-2xl animate-pulse" style={{ background: 'rgba(255,255,255,0.03)' }} />)}</div>
+        ) : heroAds.length === 0 ? (
+          <Card className="flex flex-col items-center justify-center py-10 text-center">
+            <Film className="h-10 w-10 mb-2" style={{ color: C.textDim }} />
+            <p className="text-sm font-medium text-white/30">No hero ads yet</p>
+            <p className="text-xs text-white/15 mt-1">Create one above to show in the hero banner</p>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {heroAds.map((ad: any) => (
+              <Card key={ad.id} className="!p-0 overflow-hidden group">
+                <div className="relative aspect-[21/9] overflow-hidden">
+                  {ad.mediaUrl?.match(/\.(mp4|webm|mov)$/i) ? (
+                    <video src={ad.mediaUrl} muted className="h-full w-full object-cover" />
+                  ) : (
+                    <img src={ad.mediaUrl} alt={ad.title} className="h-full w-full object-cover" loading="lazy" />
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+                  <div className="absolute top-2 left-2">
+                    <span className="rounded-md px-2 py-0.5 text-[10px] font-bold text-white" style={{ background: `${C.accent}90` }}>HERO</span>
+                  </div>
+                  <div className="absolute top-2 right-2 flex gap-1">
+                    <button onClick={() => toggleActive(ad)} className="rounded-md px-2 py-0.5 text-[10px] font-bold text-white backdrop-blur-sm transition-all" style={{ background: ad.isActive ? 'rgba(0,200,100,0.7)' : 'rgba(255,100,100,0.7)' }}>{ad.isActive ? 'Active' : 'Off'}</button>
+                  </div>
+                  <div className="absolute bottom-2 left-2 right-2">
+                    <p className="text-xs font-semibold text-white truncate">{ad.title}</p>
+                    <p className="text-[10px] text-white/50">{ad.type === 'video' ? '📹' : '🖼️'} • {ad.impressions || 0} impressions</p>
+                  </div>
+                </div>
+                <div className="p-3 flex items-center justify-between">
+                  <div className="flex gap-1.5">
+                    {ad.category && <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px]" style={{ color: C.textTer }}>{ad.category}</span>}
+                    {ad.priority > 0 && <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px]" style={{ color: C.textTer }}>Priority: {ad.priority}</span>}
+                  </div>
+                  <div className="flex gap-1">
+                    <button onClick={() => { setEditingId(ad.id); setForm({ title: ad.title, mediaUrl: ad.mediaUrl, targetUrl: ad.targetUrl || '', type: ad.type || 'image', category: ad.category || '', deviceTarget: 'all' }); setShowForm(true); setFormTab('hero') }} className="rounded-lg p-1.5 transition-colors hover:bg-white/[0.05]" style={{ color: C.textTer }}><Pencil className="h-3.5 w-3.5" /></button>
+                    <button onClick={() => deleteAd(ad.id)} className="rounded-lg p-1.5 transition-colors hover:bg-white/[0.05]" style={{ color: C.accent }}><Trash2 className="h-3.5 w-3.5" /></button>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Footer Ads Section */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <h3 className="text-[15px] font-bold text-white">📢 Footer Banner Ads</h3>
+            <span className="rounded-md px-2 py-0.5 text-[10px] font-bold text-white" style={{ background: `${C.purple}40` }}>{footerAds.length}</span>
+          </div>
+          <button onClick={() => { setFormTab('footer'); setShowForm(true); setEditingId(null) }} className="text-[11px] font-medium" style={{ color: C.purple }}>+ Add</button>
+        </div>
+        {loading ? (
+          <div className="space-y-3">{[1].map(i => <div key={i} className="h-16 rounded-2xl animate-pulse" style={{ background: 'rgba(255,255,255,0.03)' }} />)}</div>
+        ) : footerAds.length === 0 ? (
+          <Card className="flex flex-col items-center justify-center py-8 text-center">
+            <Megaphone className="h-8 w-8 mb-2" style={{ color: C.textDim }} />
+            <p className="text-sm font-medium text-white/30">No footer ads yet</p>
+          </Card>
+        ) : (
+          <div className="space-y-3">
+            {footerAds.map((ad: any) => (
+              <Card key={ad.id} className="!p-0 overflow-hidden">
+                <div className="flex items-stretch">
+                  <div className="relative w-48 sm:w-64 flex-shrink-0 overflow-hidden">
+                    {ad.mediaUrl?.match(/\.(mp4|webm|mov)$/i) ? (
+                      <video src={ad.mediaUrl} muted className="h-full w-full object-cover" style={{ maxHeight: 120 }} />
+                    ) : (
+                      <img src={ad.mediaUrl} alt={ad.title} className="h-full w-full object-cover" loading="lazy" style={{ maxHeight: 120 }} />
+                    )}
+                    <div className="absolute top-2 left-2">
+                      <span className="rounded-md px-2 py-0.5 text-[10px] font-bold text-white backdrop-blur-sm" style={{ background: `${C.purple}90` }}>FOOTER</span>
+                    </div>
+                  </div>
+                  <div className="flex-1 p-3 flex items-center justify-between min-w-0">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-white truncate">{ad.title}</p>
+                      <p className="text-[10px] mt-0.5" style={{ color: C.textTer }}>{ad.type === 'video' ? '📹' : '🖼️'} • {ad.impressions || 0} imp • {ad.clicks || 0} clicks</p>
+                    </div>
+                    <div className="flex items-center gap-1 ml-3">
+                      <button onClick={() => toggleActive(ad)} className="rounded-md px-2 py-0.5 text-[10px] font-bold text-white transition-all" style={{ background: ad.isActive ? 'rgba(0,200,100,0.7)' : 'rgba(255,100,100,0.7)' }}>{ad.isActive ? 'Active' : 'Off'}</button>
+                      <button onClick={() => { setEditingId(ad.id); setForm({ title: ad.title, mediaUrl: ad.mediaUrl, targetUrl: ad.targetUrl || '', type: ad.type || 'image', category: ad.category || '', deviceTarget: 'all' }); setShowForm(true); setFormTab('footer') }} className="rounded-lg p-1.5 transition-colors hover:bg-white/[0.05]" style={{ color: C.textTer }}><Pencil className="h-3.5 w-3.5" /></button>
+                      <button onClick={() => deleteAd(ad.id)} className="rounded-lg p-1.5 transition-colors hover:bg-white/[0.05]" style={{ color: C.accent }}><Trash2 className="h-3.5 w-3.5" /></button>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -4350,6 +4617,7 @@ function renderPage(page: AdminPage): React.ReactNode {
   if (page === 'replays') return <ReplaysManagerPage />
   if (page === 'ads-manager') return <AdsManagerPage />
   if (page === 'create-ad') return <CreateNewAdSection />
+  if (page === 'hero-ads') return <HeroFooterAdsPage />
   if (page === 'rtmp-config') return <RTMPConfigPage />
   return null
 }

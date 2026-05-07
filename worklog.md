@@ -515,3 +515,41 @@ Stage Summary:
 - Admin panel sidebar visible on tablet (768px+), hamburger menu on mobile only
 - All 20+ files updated with consistent Netflix color palette
 - Zero lint errors, dev server running cleanly
+
+---
+Task ID: 8
+Agent: Main Agent
+Task: Create API routes for banner ad management (hero, footer, event tracking)
+
+Work Log:
+- Read existing /api/ads/route.ts to understand pattern (NextRequest/NextResponse, db from @/lib/db, try/catch)
+- Read existing /api/ads/event/route.ts (already had impression/click tracking)
+- Read Prisma schema: Ad model has position field (String), AdEvent model for event records
+- Created /api/ads/hero/route.ts:
+  - GET: Fetch hero banner ads (position='hero', isActive=true, ordered by priority desc)
+  - POST: Create new hero ad with device targeting via category convention
+  - Device filtering: ?device=mobile|desktop query param filters by category ("mobile-only"/"desktop-only")
+  - Response includes ad count, uses select to return only public fields
+- Created /api/ads/footer/route.ts:
+  - GET: Fetch footer banner ads (position='footer', isActive=true)
+  - POST: Create new footer ad with same device targeting pattern
+  - Same device filtering support via query params
+- Enhanced /api/ads/event/route.ts:
+  - Added 'close' as valid eventType alongside 'impression' and 'click'
+  - Added eventType validation against VALID_EVENTS array
+  - Added ad existence check (returns 404 if ad not found)
+  - Added device and sessionId params stored in metadata JSON
+  - Stores timestamp in metadata
+  - 'close' events recorded in AdEvent but don't update ad counters
+  - Updated param names: event → eventType to match requirements
+- All routes follow existing patterns: NextRequest/NextResponse, db import, try/catch error handling
+- Zero lint errors, dev server running cleanly
+
+Stage Summary:
+- 3 API routes created/enhanced for banner ad management
+- /api/ads/hero: GET active hero banners (priority-sorted, device-filterable), POST create hero ad
+- /api/ads/footer: GET active footer banners (priority-sorted, device-filterable), POST create footer ad
+- /api/ads/event: Enhanced with close event tracking, ad existence validation, device/session metadata
+- Device targeting uses category field convention: "mobile-only", "desktop-only", null = all devices
+- No Prisma schema modifications needed (used existing Ad and AdEvent models)
+- Zero lint errors
