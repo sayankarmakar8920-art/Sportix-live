@@ -11,12 +11,11 @@ import CategoryTabs from '@/components/sportix/CategoryTabs'
 import VideoPlayer from '@/components/sportix/VideoPlayer'
 import BottomNav from '@/components/sportix/BottomNav'
 import { ContentSection, VideoCard } from '@/components/sportix/VideoCard'
-import { useIsMobile } from '@/hooks/use-mobile'
 import {
   Star, Clock, Flame, TrendingUp, Play, ArrowLeft,
   Radio, Trophy, Calendar, Award, Heart, ListVideo, Settings,
   Eye, Users, Zap, Globe, Bell, Monitor, Moon, Sun,
-  ChevronRight, Wifi, Volume2, Shield, Sparkles, Tablet, MonitorX,
+  ChevronRight, Wifi, Volume2, Shield, Sparkles, MonitorX,
   Film, RotateCcw
 } from 'lucide-react'
 
@@ -706,28 +705,6 @@ function SettingsPage() {
   )
 }
 
-/* ──────────────────────── Mobile Admin Blocked ──────────────────────── */
-function MobileAdminBlocked() {
-  const store = useAppStore()
-  return (
-    <div className="fixed inset-0 flex flex-col items-center justify-center gap-4 p-6 text-center" style={{ background: '#0B0F14' }}>
-      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/5">
-        <Tablet className="h-8 w-8 text-white/20" />
-      </div>
-      <div>
-        <h2 className="text-lg font-bold text-white">Admin Panel Unavailable</h2>
-        <p className="mt-1 text-sm text-white/40">Please use a larger screen (tablet or desktop) to access the admin panel.</p>
-      </div>
-      <button
-        onClick={() => store.setState(s => ({ currentView: 'home' }))}
-        className="rounded-xl bg-[#00ff88]/10 px-5 py-2.5 text-sm font-medium text-[#00ff88] ring-1 ring-[#00ff88]/20 transition-all hover:bg-[#00ff88]/20"
-      >
-        Back to Home
-      </button>
-    </div>
-  )
-}
-
 /* ──────────────────────── Suspense Loading Fallback ──────────────────────── */
 function AdminLoadingFallback() {
   return (
@@ -747,8 +724,7 @@ function AdminLoadingFallback() {
 export default function Home() {
   const { currentView, favorites, myList, toggleFavorite, toggleMyList, settings, updateSettings } = useAppStore()
   const session = useRef<any>(null).current
-  const isMobile = useIsMobile()
-  const prevIsMobileRef = useRef(false)
+
   const [streams, setStreams] = useState<StreamData[]>([])
   const [videos, setVideos] = useState<VideoData[]>([])
   const [continueWatching, setContinueWatching] = useState<ContinueData[]>([])
@@ -873,22 +849,11 @@ export default function Home() {
     }
   }, [])
 
-  // ── Redirect admin views to home if on mobile ──
-  useEffect(() => {
-    if (isMobile && (currentView === 'admin' || currentView === 'live-control-room')) {
-      useAppStore.getState().setCurrentView('home')
-    }
-    prevIsMobileRef.current = isMobile
-  }, [isMobile, currentView])
-
   // ── Player (full-screen, no layout) ──
   if (currentView === 'player') return <VideoPlayer />
 
-  // ── Admin Panel: blocked on mobile, lazy loaded on desktop ──
+  // ── Admin Panel: lazy loaded ──
   if (currentView === 'admin' || currentView === 'live-control-room') {
-    if (isMobile) {
-      return <MobileAdminBlocked />
-    }
     return (
       <Suspense fallback={<AdminLoadingFallback />}>
         {currentView === 'admin' ? <AdminPanel /> : <LiveControlRoom />}

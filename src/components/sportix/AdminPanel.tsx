@@ -3238,7 +3238,7 @@ export default function AdminPanel() {
     <div className="min-h-screen flex" style={{ background: C.bg }}>
       {/* ─── Sidebar ─── */}
       <aside
-        className={`fixed top-0 left-0 z-50 flex h-screen flex-col border-r transition-transform duration-300 lg:translate-x-0 ${
+        className={`fixed top-0 left-0 z-50 flex h-screen flex-col border-r transition-transform duration-300 md:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
         style={{ width: 280, background: C.sidebar, borderColor: C.border }}
@@ -3254,7 +3254,7 @@ export default function AdminPanel() {
             </h1>
             <p className="text-[9px] font-semibold uppercase tracking-[0.2em]" style={{ color: C.textDim }}>Admin Panel</p>
           </div>
-          <button onClick={() => setSidebarOpen(false)} className="ml-auto lg:hidden rounded-lg p-1 hover:bg-white/[0.05]">
+          <button onClick={() => setSidebarOpen(false)} className="ml-auto md:hidden rounded-lg p-1 hover:bg-white/[0.05]">
             <X className="h-4 w-4" style={{ color: C.textTer }} />
           </button>
         </div>
@@ -3320,17 +3320,17 @@ export default function AdminPanel() {
 
       {/* ─── Sidebar Overlay (mobile) ─── */}
       {sidebarOpen && (
-        <div className="fixed inset-0 z-40 bg-black/60 lg:hidden" onClick={() => setSidebarOpen(false)} />
+        <div className="fixed inset-0 z-40 bg-black/60 md:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
       {/* ─── Main Content ─── */}
-      <div className="flex-1 lg:ml-[280px] min-h-screen flex flex-col transition-all duration-300">
+      <div className="flex-1 md:ml-[280px] min-h-screen flex flex-col transition-all duration-300">
         {/* ─── Top Header ─── */}
         <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b px-4 lg:px-6" style={{ background: 'rgba(18,18,18,0.90)', backdropFilter: 'blur(20px)', borderColor: C.border }}>
           {/* Hamburger (mobile) */}
           <button
             onClick={() => setSidebarOpen(true)}
-            className="flex h-9 w-9 items-center justify-center rounded-xl transition-colors hover:bg-white/[0.05] lg:hidden"
+            className="flex h-9 w-9 items-center justify-center rounded-xl transition-colors hover:bg-white/[0.05] md:hidden"
           >
             <Menu className="h-5 w-5" style={{ color: C.textSec }} />
           </button>
