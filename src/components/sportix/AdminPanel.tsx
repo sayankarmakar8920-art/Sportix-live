@@ -2536,11 +2536,6 @@ function AdsManagerPage() {
           </table>
         </div>
       </Card>
-
-      {/* ═══════════════════════════════════════════════════════════
-          CREATE NEW AD — Full Section matching reference UI
-          ═══════════════════════════════════════════════════════════ */}
-      <CreateNewAdSection />
     </div>
   )
 }
