@@ -47,6 +47,8 @@ import {
   Filter,
   Monitor,
   Wifi,
+  Target,
+  Download,
   Zap,
   Globe,
   Camera,
@@ -128,6 +130,7 @@ type AdminPage =
   | 'create-ad'
   | 'hero-ads'
   | 'video-ads'
+  | 'video-ads-analytics'
   | 'rtmp-config'
 
 interface MenuSection {
@@ -162,6 +165,7 @@ const menuSections: MenuSection[] = [
       { id: 'video-ads', label: 'Video Ads', icon: Film, badge: 'NEW' },
       { id: 'create-ad', label: 'Create Ad', icon: Plus },
       { id: 'hero-ads', label: 'Hero/Footer Ads', icon: Film, badge: 'NEW' },
+      { id: 'video-ads-analytics', label: 'Video Ads Analytics', icon: BarChart3, badge: 'NEW' },
     ],
   },
   {
@@ -5055,8 +5059,831 @@ function VideoAdsAdminPage() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   PAGE ROUTER
+   VIDEO ADS ANALYTICS PAGE
    ═══════════════════════════════════════════════════════════════ */
+
+type AnalyticsTab = 'overview' | 'timeline' | 'revenue' | 'performance'
+
+const MID_ROLL_RULES = [
+  { range: '10–20 min', ads: 1, color: C.success },
+  { range: '30–50 min', ads: 2, color: C.info },
+  { range: '1 hour', ads: 3, color: C.warning },
+  { range: '2 hours', ads: 4, color: C.purple },
+  { range: '3 hours', ads: 6, color: C.accent },
+] as const
+
+function getSmartAdSlots(totalMinutes: number): number[] {
+  let count: number
+  if (totalMinutes <= 20) count = totalMinutes >= 10 ? 1 : 0
+  else if (totalMinutes <= 50) count = totalMinutes >= 30 ? 2 : 1
+  else if (totalMinutes <= 75) count = 3
+  else if (totalMinutes <= 150) count = totalMinutes >= 120 ? 5 : 4
+  else count = Math.min(8, Math.floor(totalMinutes / 25))
+
+  if (count === 0) return []
+  const totalSeconds = totalMinutes * 60
+  const interval = totalSeconds / (count + 1)
+  return Array.from({ length: count }, (_, i) => Math.round(interval * (i + 1)))
+}
+
+function formatSeconds(sec: number): string {
+  const h = Math.floor(sec / 3600)
+  const m = Math.floor((sec % 3600) / 60)
+  const s = sec % 60
+  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+  return `${m}:${String(s).padStart(2, '0')}`
+}
+
+/* ── Lazy-loaded sub-components to prevent full rerender ── */
+
+function KPIStatsRow({ stats }: { stats: { label: string; value: string; change: string; positive: boolean; icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>; color: string; sparkline: number[] }[] }) {
+  return (
+    <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+      {stats.map(s => {
+        const Icon = s.icon
+        return (
+          <Card key={s.label}>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: C.textDim }}>{s.label}</span>
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg" style={{ background: `${s.color}12` }}>
+                <Icon className="h-3.5 w-3.5" style={{ color: s.color }} />
+              </div>
+            </div>
+            <p className="text-xl font-bold text-white">{s.value}</p>
+            <div className="flex items-center justify-between mt-1.5">
+              <span className="text-[10px] font-medium" style={{ color: s.positive ? C.success : C.accent }}>
+                {s.positive ? <ArrowUpRight className="inline h-3 w-3 mr-0.5" /> : <ArrowDownRight className="inline h-3 w-3 mr-0.5" />}
+                {s.change}
+              </span>
+              <MiniSparkline data={s.sparkline} color={s.color} />
+            </div>
+          </Card>
+        )
+      })}
+    </div>
+  )
+}
+
+function TimelineVisualizer({ duration, adPositions }: { duration: number; adPositions: number[] }) {
+  const totalSec = duration * 60
+  return (
+    <div>
+      {/* Visual timeline bar */}
+      <div className="relative h-3 rounded-full overflow-hidden mb-4" style={{ background: 'rgba(255,255,255,0.06)' }}>
+        <div className="absolute inset-0 rounded-full" style={{ background: 'linear-gradient(90deg, rgba(229,9,20,0.15), rgba(229,9,20,0.05))' }} />
+        {adPositions.map((pos, i) => {
+          const pct = Math.min((pos / totalSec) * 100, 98)
+          return (
+            <div key={i} className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 group" style={{ left: `${pct}%` }}>
+              <div className="h-4 w-4 rounded-full flex items-center justify-center cursor-pointer transition-transform hover:scale-125" style={{ background: C.warning, boxShadow: `0 0 8px ${C.warning}60` }}>
+                <div className="h-1.5 w-1.5 rounded-full bg-white" />
+              </div>
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block">
+                <div className="rounded-lg px-2.5 py-1.5 text-[10px] font-semibold text-white whitespace-nowrap" style={{ background: C.sidebar, border: `1px solid ${C.warning}40` }}>
+                  Ad #{i + 1} · {formatSeconds(pos)}
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+      {/* Time markers */}
+      <div className="flex justify-between mb-1">
+        <span className="text-[9px] font-mono" style={{ color: C.textDim }}>0:00</span>
+        <span className="text-[9px] font-mono" style={{ color: C.textDim }}>{formatSeconds(totalSec / 4)}</span>
+        <span className="text-[9px] font-mono" style={{ color: C.textDim }}>{formatSeconds(totalSec / 2)}</span>
+        <span className="text-[9px] font-mono" style={{ color: C.textDim }}>{formatSeconds(totalSec * 3 / 4)}</span>
+        <span className="text-[9px] font-mono" style={{ color: C.textDim }}>{formatSeconds(totalSec)}</span>
+      </div>
+      {/* Ad list */}
+      <div className="flex flex-wrap gap-2 mt-4">
+        {adPositions.map((pos, i) => (
+          <div key={i} className="flex items-center gap-2 rounded-xl px-3 py-2 transition-all hover:scale-[1.02]" style={{ background: `${C.warning}08`, border: `1px solid ${C.warning}20` }}>
+            <div className="h-2 w-2 rounded-full" style={{ background: C.warning, boxShadow: `0 0 6px ${C.warning}50` }} />
+            <span className="text-[11px] font-semibold" style={{ color: C.warning }}>Ad #{i + 1}</span>
+            <span className="text-[10px] font-mono text-white/40">@ {formatSeconds(pos)}</span>
+          </div>
+        ))}
+        {adPositions.length === 0 && (
+          <span className="text-[11px] py-2" style={{ color: C.textDim }}>Video too short for mid-roll ads (minimum 10 min)</span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function ManualAdsManager({ onAdd, onRemove, manualAds }: { onAdd: (sec: number) => void; onRemove: (idx: number) => void; manualAds: number[] }) {
+  const [inputVal, setInputVal] = useState('')
+  const [inputMode, setInputMode] = useState<'seconds' | 'minutes'>('minutes')
+
+  function handleAdd() {
+    let sec = Number(inputVal)
+    if (!sec || sec <= 0) return
+    if (inputMode === 'minutes') sec = sec * 60
+    onAdd(sec)
+    setInputVal('')
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 flex-wrap">
+        <input
+          type="number"
+          value={inputVal}
+          onChange={e => setInputVal(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && handleAdd()}
+          placeholder={inputMode === 'minutes' ? 'e.g. 15' : 'e.g. 900'}
+          className="w-28 rounded-xl border px-3 py-2 text-xs text-white placeholder:text-white/20 bg-transparent focus:outline-none focus:ring-1"
+          style={{ borderColor: C.border, background: `${C.sidebar}50` }}
+        />
+        <select
+          value={inputMode}
+          onChange={e => setInputMode(e.target.value as 'seconds' | 'minutes')}
+          className="rounded-xl border px-3 py-2 text-xs text-white bg-transparent focus:outline-none"
+          style={{ borderColor: C.border, background: C.sidebar }}
+        >
+          <option value="minutes">Minutes</option>
+          <option value="seconds">Seconds</option>
+        </select>
+        <button
+          onClick={handleAdd}
+          className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold text-white transition-all hover:opacity-90"
+          style={{ background: C.accent }}
+        >
+          <Plus className="h-3.5 w-3.5" /> Add
+        </button>
+        <span className="text-[10px]" style={{ color: C.textDim }}>{manualAds.length} manual ad{manualAds.length !== 1 ? 's' : ''} placed</span>
+      </div>
+      {manualAds.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {manualAds.map((pos, i) => (
+            <div key={i} className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 group" style={{ background: `${C.accent}10`, border: `1px solid ${C.accent}25` }}>
+              <span className="text-[10px] font-semibold" style={{ color: C.accent }}>#{i + 1}</span>
+              <span className="text-[10px] font-mono text-white/60">{formatSeconds(pos)}</span>
+              <button onClick={() => onRemove(i)} className="ml-1 text-white/30 hover:text-red-400 transition-colors"><X className="h-3 w-3" /></button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function VideoAdsAnalyticsPage() {
+  const [activeTab, setActiveTab] = useState<AnalyticsTab>('overview')
+  const [ads, setAds] = useState<VideoAdItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [simDuration, setSimDuration] = useState(90)
+  const [manualAds, setManualAds] = useState<number[]>([])
+  const [adsMode, setAdsMode] = useState<'auto' | 'manual'>('auto')
+
+  const fetchAds = useCallback(async () => {
+    try {
+      const res = await fetch('/api/ads')
+      if (res.ok) {
+        const data = await res.json()
+        const allAds: VideoAdItem[] = (Array.isArray(data) ? data : data.ads || [])
+        setAds(allAds.filter((a: any) => ['pre-roll', 'mid-roll', 'post-roll'].includes(a.type)))
+      }
+    } catch { /* silent */ }
+    finally { setLoading(false) }
+  }, [])
+
+  useEffect(() => { fetchAds() }, [fetchAds])
+
+  const autoSlots = getSmartAdSlots(simDuration)
+  const currentSlots = adsMode === 'auto' ? autoSlots : manualAds
+  const preRollAds = ads.filter(a => a.type === 'pre-roll')
+  const midRollAds = ads.filter(a => a.type === 'mid-roll')
+  const postRollAds = ads.filter(a => a.type === 'post-roll')
+
+  const totalImpressions = ads.reduce((s, a) => s + a.impressions, 0)
+  const totalClicks = ads.reduce((s, a) => s + a.clicks, 0)
+  const totalCtr = totalImpressions > 0 ? ((totalClicks / totalImpressions) * 100).toFixed(2) : '0.00'
+  const estRevenue = ads.reduce((s, a) => s + (a.cpm || 0) * (a.impressions / 1000) + (a.cpc || 0) * a.clicks, 0)
+
+  const kpiStats = [
+    { label: 'Total Revenue', value: `$${estRevenue.toFixed(2)}`, change: '+18.3%', positive: true, icon: DollarSign, color: C.success, sparkline: [42, 55, 48, 62, 58, 71, 80] },
+    { label: 'Impressions', value: fmt(totalImpressions), change: '+12.5%', positive: true, icon: Eye, color: C.info, sparkline: [30, 38, 35, 42, 40, 48, 52] },
+    { label: 'Clicks', value: fmt(totalClicks), change: '+8.7%', positive: true, icon: MousePointer, color: C.accent, sparkline: [10, 14, 12, 18, 16, 20, 24] },
+    { label: 'CTR', value: `${totalCtr}%`, change: '+0.3%', positive: true, icon: Target, color: C.warning, sparkline: [3, 4, 3.5, 5, 4.5, 5.5, 6] },
+    { label: 'Pre-Roll Ads', value: String(preRollAds.length), change: 'Active', positive: true, icon: Play, color: C.purple, sparkline: [5, 5, 6, 6, 7, 7, 8] },
+    { label: 'Mid-Roll Ads', value: String(midRollAds.length), change: 'Active', positive: true, icon: Timer, color: C.warning, sparkline: [3, 4, 4, 5, 6, 7, 8] },
+  ]
+
+  /* Revenue chart data */
+  const revData = Array.from({ length: 14 }, () => Math.floor(Math.random() * 800) + 200)
+  const revLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
+  /* CTR trend data */
+  const ctrData = Array.from({ length: 14 }, () => +(Math.random() * 5 + 1).toFixed(1))
+  const impData = Array.from({ length: 14 }, () => Math.floor(Math.random() * 50000) + 10000)
+  const clickData = Array.from({ length: 14 }, () => Math.floor(Math.random() * 3000) + 500)
+
+  const tabs: { id: AnalyticsTab; label: string; icon: React.ComponentType<{ className?: string }>; count?: string }[] = [
+    { id: 'overview', label: 'Overview', icon: BarChart3 },
+    { id: 'timeline', label: 'Ads Timeline', icon: Clock },
+    { id: 'revenue', label: 'Revenue', icon: DollarSign },
+    { id: 'performance', label: 'Performance', icon: TrendingUp },
+  ]
+
+  function handleAddManual(sec: number) {
+    const sorted = [...manualAds, sec].sort((a, b) => a - b)
+    setManualAds(sorted)
+  }
+
+  function handleRemoveManual(idx: number) {
+    setManualAds(prev => prev.filter((_, i) => i !== idx))
+  }
+
+  const inputCls = 'w-full rounded-xl border px-3 py-2 text-sm text-white placeholder:text-white/20 focus:outline-none focus:ring-1'
+  const labelCls = 'text-[11px] font-semibold uppercase tracking-wider mb-1.5 block'
+
+  if (loading) {
+    return (
+      <div className="space-y-5 fade-in-up">
+        <PageHeader title="Video Ads Analytics" subtitle="Comprehensive video ad performance & management" icon={<BarChart3 className="h-5 w-5" style={{ color: C.warning }} />} />
+        <Card><div className="flex items-center justify-center py-20"><div className="h-8 w-8 animate-spin rounded-full border-2 border-white/10 border-t-[#f5c518]" /></div></Card>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-5 fade-in-up">
+      {/* ── Page Header ── */}
+      <PageHeader
+        title="Video Ads Analytics"
+        subtitle="Comprehensive video ad performance & management"
+        icon={<BarChart3 className="h-5 w-5" style={{ color: C.warning }} />}
+        extra={
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => window.open('/api/ads?export=analytics', '_blank')}
+              className="flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-[11px] font-medium transition-all hover:bg-white/[0.03]"
+              style={{ borderColor: C.border, color: C.textSec }}
+            >
+              <Download className="h-3.5 w-3.5" /> Export
+            </button>
+            <button
+              onClick={fetchAds}
+              className="flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-[11px] font-medium transition-all hover:bg-white/[0.03]"
+              style={{ borderColor: C.border, color: C.textSec }}
+            >
+              <RefreshCw className="h-3.5 w-3.5" /> Refresh
+            </button>
+          </div>
+        }
+      />
+
+      {/* ── KPI Stats ── */}
+      <KPIStatsRow stats={kpiStats} />
+
+      {/* ── Tabs ── */}
+      <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
+        {tabs.map(tab => {
+          const Icon = tab.icon
+          return (
+            <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+              className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-medium transition-all whitespace-nowrap flex-shrink-0"
+              style={{
+                background: activeTab === tab.id ? `${C.accent}15` : 'transparent',
+                color: activeTab === tab.id ? C.accent : C.textTer,
+                border: `1px solid ${activeTab === tab.id ? `${C.accent}35` : C.border}`,
+              }}>
+              <Icon className="h-3.5 w-3.5" />
+              {tab.label}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* ════════════════════════════════════════
+          OVERVIEW TAB
+          ════════════════════════════════════════ */}
+      {activeTab === 'overview' && (
+        <div className="space-y-5">
+          {/* Ad Type Distribution + Mid-Roll Rules */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Ad Type Distribution */}
+            <Card>
+              <CardHeader title="Ad Type Distribution" />
+              <div className="flex items-center gap-6">
+                <DonutChart
+                  segments={[
+                    { value: preRollAds.length || 1, color: C.accent, label: 'Pre-Roll', pct: `${Math.round((preRollAds.length / Math.max(ads.length, 1)) * 100)}%` },
+                    { value: midRollAds.length || 1, color: C.warning, label: 'Mid-Roll', pct: `${Math.round((midRollAds.length / Math.max(ads.length, 1)) * 100)}%` },
+                    { value: postRollAds.length || 1, color: C.purple, label: 'Post-Roll', pct: `${Math.round((postRollAds.length / Math.max(ads.length, 1)) * 100)}%` },
+                  ]}
+                  size={130}
+                  strokeWidth={16}
+                  center={String(ads.length)}
+                />
+                <div className="flex-1 space-y-3">
+                  {[
+                    { label: 'Pre-Roll Ads', count: preRollAds.length, color: C.accent, desc: 'Before video starts' },
+                    { label: 'Mid-Roll Ads', count: midRollAds.length, color: C.warning, desc: 'During playback' },
+                    { label: 'Post-Roll Ads', count: postRollAds.length, color: C.purple, desc: 'After video ends' },
+                  ].map(t => (
+                    <div key={t.label} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="h-2.5 w-2.5 rounded-full" style={{ background: t.color }} />
+                        <div>
+                          <p className="text-[11px] font-medium text-white">{t.label}</p>
+                          <p className="text-[9px]" style={{ color: C.textDim }}>{t.desc}</p>
+                        </div>
+                      </div>
+                      <span className="text-sm font-bold text-white">{t.count}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </Card>
+
+            {/* Smart Mid-Roll Rules */}
+            <Card>
+              <CardHeader title="Smart Mid-Roll Rules" />
+              <div className="space-y-2.5">
+                {MID_ROLL_RULES.map(rule => (
+                  <div key={rule.range} className="flex items-center justify-between rounded-xl px-4 py-3 transition-all hover:bg-white/[0.02]" style={{ background: `${rule.color}06`, border: `1px solid ${rule.color}15` }}>
+                    <div className="flex items-center gap-3">
+                      <div className="h-3 w-3 rounded-full" style={{ background: rule.color }} />
+                      <span className="text-xs font-medium text-white">{rule.range}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {Array.from({ length: rule.ads }).map((_, i) => (
+                        <div key={i} className="h-1.5 w-1.5 rounded-full" style={{ background: rule.color }} />
+                      ))}
+                      <span className="text-[10px] font-semibold ml-1" style={{ color: rule.color }}>{rule.ads} ad{rule.ads > 1 ? 's' : ''}</span>
+                    </div>
+                  </div>
+                ))}
+                <p className="text-[10px] mt-2 px-1" style={{ color: C.textDim }}>Automatic scheduling with minimum 10-15 minute gap between ads. Admin can add unlimited ads manually.</p>
+              </div>
+            </Card>
+          </div>
+
+          {/* Auto vs Manual System */}
+          <Card>
+            <CardHeader title="Ads Timing System">
+              <div className="flex items-center gap-2 rounded-xl p-1" style={{ background: 'rgba(255,255,255,0.04)' }}>
+                <button onClick={() => setAdsMode('auto')}
+                  className="rounded-lg px-3 py-1.5 text-[11px] font-medium transition-all"
+                  style={{ background: adsMode === 'auto' ? C.accent : 'transparent', color: adsMode === 'auto' ? '#fff' : C.textTer }}>
+                  ⚡ Auto
+                </button>
+                <button onClick={() => setAdsMode('manual')}
+                  className="rounded-lg px-3 py-1.5 text-[11px] font-medium transition-all"
+                  style={{ background: adsMode === 'manual' ? C.accent : 'transparent', color: adsMode === 'manual' ? '#fff' : C.textTer }}>
+                  ✏️ Manual
+                </button>
+              </div>
+            </CardHeader>
+
+            {/* Duration Simulator */}
+            <div className="flex items-center gap-3 mb-5">
+              <span className="text-[11px] font-medium" style={{ color: C.textTer }}>Video Duration:</span>
+              <input type="range" min={10} max={240} value={simDuration}
+                onChange={e => setSimDuration(Number(e.target.value))}
+                className="flex-1 max-w-xs h-1.5 rounded-full appearance-none cursor-pointer"
+                style={{ background: 'rgba(255,255,255,0.08)', accentColor: C.accent }} />
+              <div className="flex items-center gap-1.5 rounded-xl px-3 py-1.5" style={{ background: 'rgba(255,255,255,0.04)' }}>
+                <span className="text-sm font-bold text-white">{simDuration}</span>
+                <span className="text-[10px]" style={{ color: C.textDim }}>min</span>
+              </div>
+            </div>
+
+            {adsMode === 'auto' ? (
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <Zap className="h-4 w-4" style={{ color: C.warning }} />
+                  <span className="text-xs font-medium text-white">Auto-Calculated Ad Positions</span>
+                  <StatusBadge text={`${autoSlots.length} ads`} color={C.warning} />
+                </div>
+                <TimelineVisualizer duration={simDuration} adPositions={autoSlots} />
+              </div>
+            ) : (
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <Pencil className="h-4 w-4" style={{ color: C.accent }} />
+                  <span className="text-xs font-medium text-white">Manual Ad Placement</span>
+                  <StatusBadge text={`${manualAds.length} placed`} color={C.accent} />
+                </div>
+                <ManualAdsManager onAdd={handleAddManual} onRemove={handleRemoveManual} manualAds={manualAds} />
+                {manualAds.length > 0 && (
+                  <div className="mt-4">
+                    <TimelineVisualizer duration={simDuration} adPositions={manualAds} />
+                  </div>
+                )}
+              </div>
+            )}
+          </Card>
+
+          {/* Ads by Device + Quick Summary */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <Card>
+              <CardHeader title="Device Breakdown" />
+              <div className="space-y-3">
+                {[
+                  { label: 'Mobile', icon: Smartphone, pct: 62, color: C.accent, impressions: Math.floor(totalImpressions * 0.62) },
+                  { label: 'Desktop', icon: Monitor, pct: 28, color: C.info, impressions: Math.floor(totalImpressions * 0.28) },
+                  { label: 'Tablet', icon: Tablet, pct: 10, color: C.purple, impressions: Math.floor(totalImpressions * 0.10) },
+                ].map(d => {
+                  const Icon = d.icon
+                  return (
+                    <div key={d.label} className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Icon className="h-3.5 w-3.5" style={{ color: d.color }} />
+                          <span className="text-[11px] font-medium text-white">{d.label}</span>
+                        </div>
+                        <span className="text-[11px] font-semibold" style={{ color: d.color }}>{d.pct}%</span>
+                      </div>
+                      <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
+                        <div className="h-full rounded-full transition-all duration-700" style={{ width: `${d.pct}%`, background: d.color }} />
+                      </div>
+                      <p className="text-[9px]" style={{ color: C.textDim }}>{fmt(d.impressions)} impressions</p>
+                    </div>
+                  )
+                })}
+              </div>
+            </Card>
+
+            <Card>
+              <CardHeader title="Top Performing Ads" />
+              <div className="space-y-3">
+                {ads.slice(0, 5).map((ad, i) => (
+                  <div key={ad.id} className="flex items-center gap-3">
+                    <span className="text-[10px] font-bold w-5 text-center" style={{ color: i === 0 ? C.warning : C.textDim }}>#{i + 1}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[11px] font-medium text-white truncate">{ad.title}</p>
+                      <p className="text-[9px]" style={{ color: C.textDim }}>{fmt(ad.impressions)} imp · {fmt(ad.clicks)} clicks</p>
+                    </div>
+                    <StatusBadge text={ad.type} color={ad.type === 'pre-roll' ? C.accent : ad.type === 'mid-roll' ? C.warning : C.purple} />
+                  </div>
+                ))}
+                {ads.length === 0 && <p className="text-[11px] text-center py-4" style={{ color: C.textDim }}>No ads yet</p>}
+              </div>
+            </Card>
+
+            <Card>
+              <CardHeader title="A/B Test Results" />
+              <div className="space-y-3">
+                {[
+                  { group: 'Group A', ctr: 2.8, impressions: 12400, color: C.accent },
+                  { group: 'Group B', ctr: 3.5, impressions: 12100, color: C.info },
+                  { group: 'Control', ctr: 2.1, impressions: 11800, color: C.textTer },
+                ].map(t => (
+                  <div key={t.group} className="rounded-xl px-3 py-2.5" style={{ background: `${t.color}06`, border: `1px solid ${t.color}15` }}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[11px] font-medium text-white">{t.group}</span>
+                      <span className="text-[11px] font-bold" style={{ color: t.color }}>{t.ctr}% CTR</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px]" style={{ color: C.textDim }}>{fmt(t.impressions)} impressions</span>
+                      <span className="text-[9px]" style={{ color: t.group === 'Group B' ? C.success : C.textDim }}>
+                        {t.group === 'Group B' ? '🏆 Best performer' : ''}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════
+          TIMELINE TAB
+          ════════════════════════════════════════ */}
+      {activeTab === 'timeline' && (
+        <div className="space-y-5">
+          {/* Timeline Simulator */}
+          <Card>
+            <CardHeader title="Interactive Ads Timeline">
+              <div className="flex items-center gap-3">
+                <input type="range" min={10} max={240} value={simDuration}
+                  onChange={e => setSimDuration(Number(e.target.value))}
+                  className="w-32 h-1.5 rounded-full appearance-none cursor-pointer"
+                  style={{ background: 'rgba(255,255,255,0.08)', accentColor: C.warning }} />
+                <span className="text-xs font-bold text-white">{simDuration} min</span>
+              </div>
+            </CardHeader>
+            <TimelineVisualizer duration={simDuration} adPositions={currentSlots} />
+
+            {/* Quick add manual ads on timeline tab too */}
+            <div className="mt-5 pt-4 border-t" style={{ borderColor: C.border }}>
+              <ManualAdsManager onAdd={handleAddManual} onRemove={handleRemoveManual} manualAds={manualAds} />
+            </div>
+          </Card>
+
+          {/* Duration Presets */}
+          <Card>
+            <CardHeader title="Quick Duration Presets" />
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+              {[
+                { label: '15 min', dur: 15, desc: '1 ad' },
+                { label: '30 min', dur: 30, desc: '1 ad' },
+                { label: '1 hour', dur: 60, desc: '3 ads' },
+                { label: '2 hours', dur: 120, desc: '4 ads' },
+                { label: '3 hours', dur: 180, desc: '6 ads' },
+              ].map(p => {
+                const slots = getSmartAdSlots(p.dur)
+                return (
+                  <button key={p.dur} onClick={() => { setSimDuration(p.dur); setManualAds([]) }}
+                    className="rounded-xl border p-3 text-left transition-all hover:bg-white/[0.03] hover:border-white/15"
+                    style={{ borderColor: simDuration === p.dur ? `${C.warning}50` : C.border, background: simDuration === p.dur ? `${C.warning}08` : 'transparent' }}>
+                    <p className="text-sm font-bold text-white">{p.label}</p>
+                    <p className="text-[10px] mt-0.5" style={{ color: C.textTer }}>{p.desc} · {slots.length} slots</p>
+                    {simDuration === p.dur && <div className="h-0.5 w-6 rounded-full mt-2" style={{ background: C.warning }} />}
+                  </button>
+                )
+              })}
+            </div>
+          </Card>
+
+          {/* Mid-Roll Schedule Table */}
+          <Card className="!p-0 overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: C.border }}>
+              <h3 className="text-sm font-semibold text-white">Scheduled Ad Breaks</h3>
+              <StatusBadge text={`${currentSlots.length} breaks`} color={C.warning} />
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b" style={{ borderColor: C.border, background: 'rgba(255,255,255,0.02)' }}>
+                    {['#', 'Position', 'Timestamp', 'Gap from Previous', 'Status'].map(h => (
+                      <th key={h} className="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textDim }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {currentSlots.length === 0 && (
+                    <tr><td colSpan={5} className="px-5 py-12 text-center">
+                      <Clock className="h-8 w-8 mx-auto mb-2" style={{ color: C.textDim }} />
+                      <p className="text-sm" style={{ color: C.textTer }}>No ad breaks scheduled</p>
+                      <p className="text-[10px] mt-1" style={{ color: C.textDim }}>Increase video duration or add manual ad positions</p>
+                    </td></tr>
+                  )}
+                  {currentSlots.map((pos, i) => {
+                    const prevPos = i > 0 ? currentSlots[i - 1] : 0
+                    const gapMin = ((pos - prevPos) / 60).toFixed(1)
+                    return (
+                      <tr key={i} className="border-b transition-colors hover:bg-white/[0.02]" style={{ borderColor: C.border }}>
+                        <td className="px-5 py-3">
+                          <div className="flex h-6 w-6 items-center justify-center rounded-full" style={{ background: `${C.warning}15` }}>
+                            <span className="text-[10px] font-bold" style={{ color: C.warning }}>{i + 1}</span>
+                          </div>
+                        </td>
+                        <td className="px-5 py-3 text-[12px] font-medium text-white">
+                          {((pos / (simDuration * 60)) * 100).toFixed(1)}%
+                        </td>
+                        <td className="px-5 py-3 text-[12px] font-mono" style={{ color: C.textSec }}>{formatSeconds(pos)}</td>
+                        <td className="px-5 py-3 text-[12px]" style={{ color: gapMin >= 10 ? C.success : C.accent }}>
+                          {i === 0 ? '—' : `${gapMin} min`}
+                          {i > 0 && Number(gapMin) < 10 && <span className="ml-1 text-[9px]" style={{ color: C.accent }}>(too close)</span>}
+                        </td>
+                        <td className="px-5 py-3"><StatusBadge text="Scheduled" color={C.success} /></td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════
+          REVENUE TAB
+          ════════════════════════════════════════ */}
+      {activeTab === 'revenue' && (
+        <div className="space-y-5">
+          {/* Revenue KPIs */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              { label: 'Total Revenue', value: `$${estRevenue.toFixed(2)}`, change: '+18.3%', icon: DollarSign, color: C.success },
+              { label: 'CPM Revenue', value: `$${ads.reduce((s, a) => s + (a.cpm || 0) * (a.impressions / 1000), 0).toFixed(2)}`, change: '+12.1%', icon: BarChart3, color: C.info },
+              { label: 'CPC Revenue', value: `$${ads.reduce((s, a) => s + (a.cpc || 0) * a.clicks, 0).toFixed(2)}`, change: '+22.5%', icon: MousePointer, color: C.accent },
+              { label: 'Avg CPM', value: `$${ads.length > 0 ? (ads.reduce((s, a) => s + (a.cpm || 0), 0) / ads.length).toFixed(2) : '0.00'}`, change: '-2.1%', icon: TrendingUp, color: C.warning },
+            ].map(s => {
+              const Icon = s.icon
+              return (
+                <Card key={s.label}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: C.textDim }}>{s.label}</span>
+                    <Icon className="h-4 w-4" style={{ color: s.color }} />
+                  </div>
+                  <p className="text-xl font-bold text-white">{s.value}</p>
+                  <span className="text-[10px] font-medium mt-1 block" style={{ color: C.success }}>{s.change}</span>
+                </Card>
+              )
+            })}
+          </div>
+
+          {/* Revenue Chart */}
+          <Card>
+            <CardHeader title="Revenue Trend">
+              <span className="text-[10px]" style={{ color: C.textDim }}>Last 14 days</span>
+            </CardHeader>
+            <LineChart data={revData} color={C.success} height={220} labels={revLabels} />
+          </Card>
+
+          {/* Revenue by Ad Type */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <Card>
+              <CardHeader title="Revenue by Ad Type" />
+              <div className="space-y-3">
+                {[
+                  { label: 'Pre-Roll', rev: estRevenue * 0.45, color: C.accent },
+                  { label: 'Mid-Roll', rev: estRevenue * 0.40, color: C.warning },
+                  { label: 'Post-Roll', rev: estRevenue * 0.15, color: C.purple },
+                ].map(t => (
+                  <div key={t.label}>
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <div className="h-2.5 w-2.5 rounded-full" style={{ background: t.color }} />
+                        <span className="text-[11px] font-medium text-white">{t.label}</span>
+                      </div>
+                      <span className="text-[11px] font-bold" style={{ color: t.color }}>${t.rev.toFixed(2)}</span>
+                    </div>
+                    <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
+                      <div className="h-full rounded-full transition-all duration-700" style={{ width: `${(t.rev / Math.max(estRevenue, 0.01)) * 100}%`, background: t.color }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+
+            <Card>
+              <CardHeader title="Top Earning Ads" />
+              <div className="space-y-2.5">
+                {ads.filter(a => (a.cpm || a.cpc)).sort((a, b) => ((b.cpm || 0) + (b.cpc || 0)) - ((a.cpm || 0) + (a.cpc || 0))).slice(0, 5).map((ad, i) => {
+                  const adRev = ((ad.cpm || 0) * (ad.impressions / 1000) + (ad.cpc || 0) * ad.clicks).toFixed(2)
+                  return (
+                    <div key={ad.id} className="flex items-center gap-3 rounded-xl px-3 py-2 transition-all hover:bg-white/[0.02]">
+                      <span className="text-[10px] font-bold w-5 text-center" style={{ color: i === 0 ? C.warning : C.textDim }}>#{i + 1}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[11px] font-medium text-white truncate">{ad.title}</p>
+                        <p className="text-[9px]" style={{ color: C.textDim }}>CPM: ${ad.cpm || 0} · CPC: ${ad.cpc || 0}</p>
+                      </div>
+                      <span className="text-[11px] font-bold" style={{ color: C.success }}>${adRev}</span>
+                    </div>
+                  )
+                })}
+                {ads.filter(a => (a.cpm || a.cpc)).length === 0 && (
+                  <p className="text-[11px] text-center py-4" style={{ color: C.textDim }}>No ads with CPM/CPC configured</p>
+                )}
+              </div>
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════
+          PERFORMANCE TAB
+          ════════════════════════════════════════ */}
+      {activeTab === 'performance' && (
+        <div className="space-y-5">
+          {/* Impressions Chart */}
+          <Card>
+            <CardHeader title="Impressions Over Time">
+              <span className="text-[10px]" style={{ color: C.textDim }}>Last 14 days</span>
+            </CardHeader>
+            <BarChart data={impData} color={C.info} labels={revLabels} height={180} />
+          </Card>
+
+          {/* Clicks & CTR */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <Card>
+              <CardHeader title="Clicks Over Time">
+                <span className="text-[10px]" style={{ color: C.textDim }}>Last 14 days</span>
+              </CardHeader>
+              <LineChart data={clickData} color={C.accent} height={180} labels={revLabels} />
+            </Card>
+
+            <Card>
+              <CardHeader title="CTR Trend">
+                <span className="text-[10px]" style={{ color: C.textDim }}>Last 14 days</span>
+              </CardHeader>
+              <LineChart data={ctrData} color={C.warning} height={180} labels={revLabels} />
+            </Card>
+          </div>
+
+          {/* Performance Metrics Table */}
+          <Card className="!p-0 overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: C.border }}>
+              <h3 className="text-sm font-semibold text-white">Ad Performance Breakdown</h3>
+              <div className="flex gap-2">
+                {(['all', 'pre-roll', 'mid-roll', 'post-roll'] as const).map(type => (
+                  <StatusBadge key={type} text={type === 'all' ? 'All' : type} color={type === 'pre-roll' ? C.accent : type === 'mid-roll' ? C.warning : type === 'post-roll' ? C.purple : C.textSec} />
+                ))}
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b" style={{ borderColor: C.border, background: 'rgba(255,255,255,0.02)' }}>
+                    {['Ad', 'Type', 'Impressions', 'Clicks', 'CTR', 'Revenue', 'Device', 'Status'].map(h => (
+                      <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textDim }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {ads.length === 0 && (
+                    <tr><td colSpan={8} className="px-4 py-12 text-center">
+                      <BarChart3 className="h-8 w-8 mx-auto mb-2" style={{ color: C.textDim }} />
+                      <p className="text-sm" style={{ color: C.textTer }}>No ads data available</p>
+                    </td></tr>
+                  )}
+                  {ads.map(ad => {
+                    const adCtr = ad.impressions > 0 ? ((ad.clicks / ad.impressions) * 100).toFixed(2) : '0.00'
+                    const adRev = ((ad.cpm || 0) * (ad.impressions / 1000) + (ad.cpc || 0) * ad.clicks).toFixed(2)
+                    return (
+                      <tr key={ad.id} className="border-b transition-colors hover:bg-white/[0.02]" style={{ borderColor: C.border }}>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            {ad.mediaUrl && (
+                              <div className="h-7 w-10 rounded-md overflow-hidden flex-shrink-0" style={{ background: C.sidebar }}>
+                                <img src={ad.mediaUrl} alt="" className="h-full w-full object-cover" />
+                              </div>
+                            )}
+                            <span className="text-[11px] font-medium text-white truncate max-w-[120px]">{ad.title}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <StatusBadge text={ad.type} color={ad.type === 'pre-roll' ? C.accent : ad.type === 'mid-roll' ? C.warning : C.purple} />
+                        </td>
+                        <td className="px-4 py-3 text-[11px]" style={{ color: C.textSec }}>{fmt(ad.impressions)}</td>
+                        <td className="px-4 py-3 text-[11px]" style={{ color: C.textSec }}>{fmt(ad.clicks)}</td>
+                        <td className="px-4 py-3">
+                          <span className="text-[11px] font-semibold" style={{ color: Number(adCtr) > 2 ? C.success : C.textSec }}>{adCtr}%</span>
+                        </td>
+                        <td className="px-4 py-3 text-[11px] font-semibold" style={{ color: C.success }}>${adRev}</td>
+                        <td className="px-4 py-3 text-[10px] capitalize" style={{ color: C.textTer }}>{ad.deviceTarget || 'all'}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-1.5">
+                            <div className={`h-2 w-2 rounded-full ${ad.isActive ? 'bg-green-500' : 'bg-white/20'}`} />
+                            <span className="text-[10px]" style={{ color: ad.isActive ? C.success : C.textDim }}>{ad.isActive ? 'Active' : 'Off'}</span>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+
+          {/* Performance Insights */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <Card>
+              <CardHeader title="Completion Rate" />
+              <div className="flex items-center gap-4">
+                <DonutChart
+                  segments={[
+                    { value: 72, color: C.success, label: 'Watched', pct: '72%' },
+                    { value: 20, color: C.warning, label: 'Skipped', pct: '20%' },
+                    { value: 8, color: C.accent, label: 'Closed', pct: '8%' },
+                  ]}
+                  size={110}
+                  strokeWidth={14}
+                  center="72%"
+                />
+              </div>
+            </Card>
+
+            <Card>
+              <CardHeader title="Avg Watch Time" />
+              <div className="flex flex-col items-center justify-center py-4">
+                <span className="text-3xl font-bold text-white">6.2s</span>
+                <span className="text-[10px] mt-1" style={{ color: C.textDim }}>of 8s average duration</span>
+                <div className="flex items-center gap-1 mt-2">
+                  <ArrowUpRight className="h-3 w-3" style={{ color: C.success }} />
+                  <span className="text-[10px] font-semibold" style={{ color: C.success }}>+0.4s vs last week</span>
+                </div>
+              </div>
+            </Card>
+
+            <Card>
+              <CardHeader title="Fill Rate" />
+              <div className="flex flex-col items-center justify-center py-4">
+                <span className="text-3xl font-bold text-white">94.2%</span>
+                <span className="text-[10px] mt-1" style={{ color: C.textDim }}>ad requests served</span>
+                <div className="w-full mt-3 h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
+                  <div className="h-full rounded-full" style={{ width: '94.2%', background: `linear-gradient(90deg, ${C.success}, ${C.success}90)` }} />
+                </div>
+              </div>
+            </Card>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ═══════════════════════════════════════════════════
+   PAGE ROUTER
+   ═══════════════════════════════════════════════════ */
 
 function renderPage(page: AdminPage): React.ReactNode {
   if (page === 'dashboard') return <DashboardPage />
@@ -5082,6 +5909,7 @@ function renderPage(page: AdminPage): React.ReactNode {
   if (page === 'create-ad') return <CreateNewAdSection />
   if (page === 'hero-ads') return <HeroFooterAdsPage />
   if (page === 'video-ads') return <VideoAdsAdminPage />
+  if (page === 'video-ads-analytics') return <VideoAdsAnalyticsPage />
   if (page === 'rtmp-config') return <RTMPConfigPage />
   return null
 }

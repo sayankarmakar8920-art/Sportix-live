@@ -634,3 +634,35 @@ Stage Summary:
 - Video UI unchanged — all controls, layout, and styling preserved
 - All new API routes: /api/ads/video-ads (grouped video ads)
 - Zero lint errors, clean dev server compilation
+
+---
+Task ID: 10
+Agent: Main Agent
+Task: Add Video Ads Analytics sidebar section and analytics page to Admin Panel
+
+Work Log:
+- Added 'video-ads-analytics' to AdminPage type union
+- Added 'Video Ads Analytics' sidebar item below 'Hero/Footer Ads' in MANAGEMENT section with BarChart3 icon and 'NEW' badge
+- Added route in renderPage: 'video-ads-analytics' -> VideoAdsAnalyticsPage
+- Added missing Lucide icon imports: Target, Download
+- Created comprehensive VideoAdsAnalyticsPage component (~770 lines) with:
+  - 4 tabs: Overview, Ads Timeline, Revenue, Performance
+  - KPI stats row (6 cards): Total Revenue, Impressions, Clicks, CTR, Pre-Roll Ads, Mid-Roll Ads
+  - Overview tab: Ad Type Distribution donut chart, Smart Mid-Roll Rules (10-20min→1ad, 30-50min→2ads, 1hr→3ads, 2hr→4ads, 3hr→6ads), Auto/Manual ads timing system with duration slider, Device breakdown, Top Performing Ads, A/B Test Results
+  - Timeline tab: Interactive timeline with yellow dots showing ad positions, manual ad placement (unlimited), quick duration presets, scheduled ad breaks table with gap warnings
+  - Revenue tab: Revenue KPIs (Total/CPM/CPC/Avg CPM), Revenue trend line chart, Revenue by ad type progress bars, Top earning ads list
+  - Performance tab: Impressions bar chart, Clicks line chart, CTR trend chart, Full performance breakdown table (8 columns), Completion rate donut, Avg watch time, Fill rate
+- Sub-components for performance: KPIStatsRow, TimelineVisualizer (yellow dots with hover tooltips), ManualAdsManager (unlimited ad placement)
+- Smart ad slot calculation: getSmartAdSlots() respects the specified mid-roll rules
+- All responsive (grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 etc.)
+- Lint passes clean, dev server compiles successfully
+
+Stage Summary:
+- New sidebar section "Video Ads Analytics" directly below "Hero/Footer Ads" with same design
+- Professional analytics page with 4 tabs: Overview, Timeline, Revenue, Performance
+- Yellow dot timeline UI showing ad positions on a progress bar
+- Smart mid-roll scheduling rules: 10-20min→1ad, 30-50min→2ads, 1hr→3ads, 2hr→4ads, 3hr→6ads
+- Unlimited manual ad placement support
+- Real-time data fetched from /api/ads with refresh button
+- Charts: Donut charts, Line charts, Bar charts, Sparklines
+- Zero lint errors
