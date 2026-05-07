@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef, lazy, Suspense } from 'react'
+import { useEffect, useState, useCallback, Suspense } from 'react'
 import { useAppStore } from '@/lib/store'
 import ErrorBoundary from '@/components/ErrorBoundary'
 import Header from '@/components/sportix/Header'
@@ -20,7 +20,6 @@ import {
 } from 'lucide-react'
 
 // Lazy load heavy components for faster initial page load
-const AdminPanel = lazy(() => import('@/components/sportix/AdminPanel'))
 const LiveControlRoom = lazy(() => import('@/components/sportix/LiveControlRoom'))
 const HLSPlayer = lazy(() => import('@/components/sportix/HLSPlayer'))
 const ReplaySection = lazy(() => import('@/components/sportix/ReplaySection'))
@@ -701,46 +700,6 @@ function SettingsPage() {
         </div>
       </div>
 
-    </div>
-  )
-}
-
-/* ──────────────────────── Mobile Detection Hook ──────────────────────── */
-function useIsMobile() {
-  const [isMobile, setIsMobile] = useState(false)
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768)
-    check()
-    window.addEventListener('resize', check)
-    return () => window.removeEventListener('resize', check)
-  }, [])
-  return isMobile
-}
-
-/* ──────────────────────── Mobile Admin Blocked Screen ──────────────────────── */
-function MobileAdminBlocked() {
-  return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center p-6" style={{ background: '#0B0F14' }}>
-      <div className="flex flex-col items-center gap-4 text-center max-w-sm">
-        <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-[#ff3b3b]/10 ring-1 ring-[#ff3b3b]/20">
-          <Tablet className="h-10 w-10 text-[#ff3b3b]" />
-        </div>
-        <div>
-          <h1 className="text-xl font-bold text-white mb-2">Admin Panel Unavailable</h1>
-          <p className="text-sm text-white/50 leading-relaxed">
-            Admin panel is only available on tablets and desktop computers. 
-            Please switch to a larger device to access the admin controls.
-          </p>
-        </div>
-        <button
-          onClick={() => useAppStore.getState().setCurrentView('home')}
-          className="mt-2 flex items-center gap-2 rounded-xl bg-[#00ff88] px-6 py-3 text-sm font-bold text-[#02040a] transition-all hover:bg-[#00dd75] active:scale-[0.97]"
-        >
-          <Monitor className="h-4 w-4" />
-          Go to Home
-        </button>
-        <p className="mt-4 text-[11px] text-white/20">Sportix Live v2.0 — Admin restricted to 768px+ screens</p>
-      </div>
     </div>
   )
 }

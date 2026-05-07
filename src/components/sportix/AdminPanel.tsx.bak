@@ -61,10 +61,6 @@ import {
   CheckCircle,
   XCircle,
   Plus,
-  Heart,
-  Share2,
-  Bookmark,
-  MousePointer,
 } from 'lucide-react'
 
 /* ═══════════════════════════════════════════════════════════════
@@ -725,688 +721,50 @@ function LiveMonitorPage() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   PAGE HEADER SHARED COMPONENT
-   ═══════════════════════════════════════════════════════════════ */
-
-function PageHeader({ title, subtitle, icon, extra }: { title: string; subtitle: string; icon: React.ReactNode; extra?: React.ReactNode }) {
-  return (
-    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-      <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: `${C.accent}15` }}>
-          {icon}
-        </div>
-        <div>
-          <h2 className="text-lg font-bold text-white">{title}</h2>
-          <p className="text-xs" style={{ color: C.textTer }}>{subtitle}</p>
-        </div>
-      </div>
-      {extra && <div className="flex items-center gap-2">{extra}</div>}
-    </div>
-  )
-}
-
-function MetricCard({ label, value, change, positive, icon: Icon, color, sparkline }: { label: string; value: string; change: string; positive?: boolean; icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>; color: string; sparkline?: number[] }) {
-  return (
-    <Card>
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-xs font-medium" style={{ color: C.textTer }}>{label}</span>
-        {Icon && <div className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ background: `${color}15` }}><Icon className="h-4 w-4" style={{ color }} /></div>}
-      </div>
-      <p className="text-2xl font-bold text-white">{value}</p>
-      <div className="flex items-center justify-between mt-2">
-        <span className="text-[11px] font-medium" style={{ color: positive !== false ? C.success : C.accent }}>
-          {positive !== false ? <ArrowUpRight className="inline h-3 w-3 mr-0.5" /> : <ArrowDownRight className="inline h-3 w-3 mr-0.5" />}
-          {change}
-        </span>
-        {sparkline && <MiniSparkline data={sparkline} color={color} />}
-      </div>
-    </Card>
-  )
-}
-
-function DonutChart({ segments, size = 140, strokeWidth = 18, center }: { segments: { value: number; color: string; label: string; pct: string }[]; size?: number; strokeWidth?: number; center?: string }) {
-  const total = segments.reduce((a, s) => a + s.value, 0)
-  const r = (size - strokeWidth) / 2
-  const circ = 2 * Math.PI * r
-  const offsets: number[] = []
-  let acc = 0
-  for (const s of segments) {
-    offsets.push(acc)
-    acc += (s.value / total) * circ
-  }
-  return (
-    <div className="flex flex-col items-center gap-3">
-      <div className="relative" style={{ width: size, height: size }}>
-        <svg width={size} height={size} className="-rotate-90">
-          {segments.map((s, i) => {
-            const len = (s.value / total) * circ
-            const el = <circle key={i} cx={size / 2} cy={size / 2} r={r} fill="none" stroke={s.color} strokeWidth={strokeWidth} strokeDasharray={`${len} ${circ - len}`} strokeDashoffset={-offsets[i]} strokeLinecap="round" />
-            return el
-          })}
-        </svg>
-        {center && <div className="absolute inset-0 flex items-center justify-center"><span className="text-sm font-bold text-white">{center}</span></div>}
-      </div>
-      <div className="flex flex-wrap justify-center gap-x-4 gap-y-1">
-        {segments.map((s, i) => (
-          <div key={i} className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full" style={{ background: s.color }} />
-            <span className="text-[10px]" style={{ color: C.textSec }}>{s.label} <span className="font-semibold text-white">{s.pct}</span></span>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function LineChart({ data, color, height = 200, labels }: { data: number[]; color: string; height?: number; labels?: string[] }) {
-  const max = Math.max(...data)
-  const min = Math.min(...data)
-  const range = max - min || 1
-  const w = 100
-  const points = data.map((v, i) => `${(i / (data.length - 1)) * w},${height - ((v - min) / range) * (height - 20) - 10}`)
-  const areaPoints = `0,${height} ${points.join(' ')} ${w},${height}`
-  return (
-    <div>
-      <svg viewBox={`0 0 ${w} ${height}`} className="w-full" preserveAspectRatio="none" style={{ height }}>
-        <defs>
-          <linearGradient id={`grad-${color.replace('#', '')}`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={color} stopOpacity="0.3" />
-            <stop offset="100%" stopColor={color} stopOpacity="0.02" />
-          </linearGradient>
-        </defs>
-        <polygon points={areaPoints} fill={`url(#grad-${color.replace('#', '')})`} />
-        <polyline points={points.join(' ')} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" />
-        {data.map((v, i) => (
-          <circle key={i} cx={(i / (data.length - 1)) * w} cy={height - ((v - min) / range) * (height - 20) - 10} r="2" fill={color} />
-        ))}
-      </svg>
-      {labels && (
-        <div className="flex justify-between mt-2">
-          {labels.map((l, i) => <span key={i} className="text-[9px]" style={{ color: C.textDim }}>{l}</span>)}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function BarChart({ data, color, labels, height = 180 }: { data: number[]; color: string; labels?: string[]; height?: number }) {
-  const max = Math.max(...data)
-  return (
-    <div className="flex h-[200px] items-end gap-2">
-      {data.map((v, i) => {
-        const h = (v / max) * (height || 180)
-        return (
-          <div key={i} className="flex-1 flex flex-col items-center gap-1">
-            <div className="w-full relative group cursor-pointer">
-              <div className="w-full rounded-t-md transition-all duration-300 hover:opacity-80" style={{ height: `${h}%`, background: `linear-gradient(180deg, ${color}90, ${color}20)`, minHeight: 6 }} />
-              <div className="absolute -top-6 left-1/2 -translate-x-1/2 hidden group-hover:block rounded px-1.5 py-0.5 text-[9px] font-semibold text-white whitespace-nowrap" style={{ background: C.sidebar }}>{typeof v === 'number' && v > 1000 ? `${(v / 1000).toFixed(1)}K` : v}</div>
-            </div>
-            {labels && <span className="text-[9px]" style={{ color: C.textDim }}>{labels[i]}</span>}
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   ANALYTICS PAGE (Ad Performance Overview - Screenshot 4)
+   ANALYTICS PAGE
    ═══════════════════════════════════════════════════════════════ */
 
 function AnalyticsPage() {
-  const [activeTab, setActiveTab] = useState('Revenue')
-  const perfData = [320000, 410000, 380000, 520000, 460000, 580000, 490000]
-  const convData = [1200, 1800, 1500, 2800, 2200, 3800, 2600]
-  const tabs = ['Revenue', 'Impressions', 'Clicks', 'CTR', 'CPC']
-
-  const campaigns = [
-    { name: 'Summer Sale', revenue: '₹8.52M', impressions: '4.2M', clicks: '3.8L', ctr: '9.0%', conv: '45.2K', cost: '₹18.72', roas: '4.5x' },
-    { name: 'Gaming Promo', revenue: '₹6.23M', impressions: '3.1M', clicks: '2.6L', ctr: '8.4%', conv: '32.1K', cost: '₹19.41', roas: '3.2x' },
-    { name: 'Tech Launch', revenue: '₹4.75M', impressions: '2.8M', clicks: '2.1L', ctr: '7.5%', conv: '24.5K', cost: '₹19.39', roas: '2.8x' },
-    { name: 'App Install', revenue: '₹3.92M', impressions: '2.4M', clicks: '1.9L', ctr: '7.9%', conv: '18.3K', cost: '₹21.42', roas: '2.1x' },
-    { name: 'Brand Aware', revenue: '₹3.26M', impressions: '1.9M', clicks: '1.4L', ctr: '7.4%', conv: '12.8K', cost: '₹25.47', roas: '1.5x' },
-  ]
-
-  const demographics = [
-    { age: '18-24', pct: 18.2, color: C.purple },
-    { age: '25-34', pct: 37.5, color: C.accent },
-    { age: '35-44', pct: 24.3, color: C.info },
-    { age: '45-54', pct: 14.6, color: C.warning },
-    { age: '55+', pct: 5.4, color: C.success },
-  ]
+  const days30 = Array.from({ length: 30 }, () => Math.floor(Math.random() * 100000) + 10000)
 
   return (
     <div className="space-y-5 fade-in-up">
-      <PageHeader title="Ad Performance Overview" subtitle="Get insights into your advertising performance" icon={<BarChart3 className="h-5 w-5" style={{ color: C.accent }} />} extra={
-        <>
-          <button className="flex items-center gap-1.5 rounded-xl border px-3 py-2 text-[12px] font-medium transition-all hover:bg-white/[0.03]" style={{ borderColor: C.border, color: C.textSec }}><Filter className="h-3.5 w-3.5" /> Filter</button>
-          <button className="flex items-center gap-1.5 rounded-xl border px-3 py-2 text-[12px] font-medium transition-all hover:bg-white/[0.03]" style={{ borderColor: C.border, color: C.textSec }}><RefreshCw className="h-3.5 w-3.5" /> Export</button>
-        </>
-      } />
-
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <MetricCard label="Total Revenue" value="₹26.68M" change="+12.5%" icon={DollarSign} color={C.accent} sparkline={[28, 32, 30, 38, 36, 42, 40]} />
-        <MetricCard label="Impressions" value="24.58L" change="+8.3%" icon={Eye} color={C.purple} sparkline={[18, 22, 20, 26, 24, 30, 28]} />
-        <MetricCard label="Clicks" value="7.35L" change="+14.3%" icon={TrendingUp} color={C.info} sparkline={[12, 16, 14, 20, 18, 24, 22]} />
-        <MetricCard label="CTR" value="6.78%" change="+6.7%" icon={Activity} color="#e6a817" sparkline={[5, 6, 5.5, 7, 6.5, 7.5, 6.8]} />
-        <MetricCard label="Conversions" value="2.45L" change="+10.2%" icon={CheckCircle} color={C.success} sparkline={[8, 10, 9, 14, 12, 16, 14]} />
-        <MetricCard label="CPR" value="₹18.72" change="-4.2%" positive={false} icon={ArrowDownRight} color={C.warning} sparkline={[22, 20, 21, 19, 18, 17, 18.7]} />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card>
-          <CardHeader title="Performance Trend">
-            <div className="flex items-center gap-1">
-              {tabs.map(t => (
-                <button key={t} onClick={() => setActiveTab(t)} className="px-2.5 py-1 text-[10px] font-medium rounded-lg transition-all" style={{ background: activeTab === t ? C.accent : 'transparent', color: activeTab === t ? '#fff' : C.textTer }}>{t}</button>
-              ))}
-            </div>
-          </CardHeader>
-          <div className="relative">
-            <LineChart data={perfData} color={C.accent} height={200} labels={['May 3', 'May 4', 'May 5', 'May 6', 'May 7', 'May 8', 'May 9']} />
-            <div className="absolute top-2 left-1/2 -translate-x-1/2 rounded-lg px-2.5 py-1.5 flex items-center gap-2" style={{ background: C.sidebar, border: `1px solid ${C.border}` }}>
-              <span className="h-2 w-2 rounded-full" style={{ background: C.accent }} />
-              <span className="text-[10px] font-semibold text-white">₹18.72L</span>
-              <span className="text-[9px]" style={{ color: C.textTer }}>May 6, 2026</span>
-            </div>
-          </div>
-        </Card>
-        <Card>
-          <CardHeader title="Conversions Over Time" />
-          <BarChart data={convData} color={C.accent} labels={['May 3', 'May 4', 'May 5', 'May 6', 'May 7', 'May 8', 'May 9']} height={180} />
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader title="Device Performance"><button className="text-[11px] font-medium" style={{ color: C.accent }}>View All</button></CardHeader>
-          <DonutChart segments={[
-            { value: 59.6, color: C.accent, label: 'Mobile', pct: '59.6%' },
-            { value: 28.4, color: C.purple, label: 'Desktop', pct: '28.4%' },
-            { value: 8.7, color: C.info, label: 'Tablet', pct: '8.7%' },
-            { value: 3.3, color: C.warning, label: 'Others', pct: '3.3%' },
-          ]} size={160} center="100%" />
-        </Card>
-        <Card className="lg:col-span-2">
-          <CardHeader title="Top Campaigns by Performance"><button className="text-[11px] font-medium" style={{ color: C.accent }}>View All</button></CardHeader>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead><tr className="border-b" style={{ borderColor: C.border }}>
-                {['Campaign', 'Revenue', 'Impressions', 'Clicks', 'CTR', 'Conv.', 'Cost/Conv.', 'ROAS'].map(h => <th key={h} className="pb-2 text-left text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textDim }}>{h}</th>)}
-              </tr></thead>
-              <tbody>{campaigns.map((c, i) => (
-                <tr key={i} className="border-b transition-colors hover:bg-white/[0.02]" style={{ borderColor: C.border }}>
-                  <td className="py-2.5 text-[12px] font-medium text-white">{c.name}</td>
-                  <td className="py-2.5 text-[12px] font-semibold" style={{ color: C.success }}>{c.revenue}</td>
-                  <td className="py-2.5 text-[11px]" style={{ color: C.textSec }}>{c.impressions}</td>
-                  <td className="py-2.5 text-[11px]" style={{ color: C.textSec }}>{c.clicks}</td>
-                  <td className="py-2.5 text-[11px] font-semibold" style={{ color: C.accent }}>{c.ctr}</td>
-                  <td className="py-2.5 text-[11px]">{c.conv}</td>
-                  <td className="py-2.5 text-[11px]">{c.cost}</td>
-                  <td className="py-2.5"><StatusBadge text={c.roas} color={parseFloat(c.roas) >= 3 ? C.success : parseFloat(c.roas) >= 2 ? C.warning : C.accent} /></td>
-                </tr>
-              ))}</tbody>
-            </table>
-          </div>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card>
-          <CardHeader title="Audience Demographics" />
-          <div className="space-y-3 mb-5">
-            {demographics.map(d => (
-              <div key={d.age}>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[11px]" style={{ color: C.textTer }}>{d.age} Years</span>
-                  <span className="text-[11px] font-semibold text-white">{d.pct}%</span>
-                </div>
-                <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
-                  <div className="h-full rounded-full transition-all duration-700" style={{ width: `${d.pct}%`, background: d.color }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-        <Card>
-          <CardHeader title="Gender Distribution" />
-          <div className="flex items-center justify-center gap-8">
-            <DonutChart segments={[
-              { value: 64.3, color: C.accent, label: 'Male', pct: '64.3%' },
-              { value: 35.7, color: C.purple, label: 'Female', pct: '35.7%' },
-            ]} size={140} center="64.3%" />
-            <div className="space-y-3">
-              <div className="rounded-xl p-3 border" style={{ borderColor: C.border, background: 'rgba(255,255,255,0.02)' }}>
-                <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: C.textDim }}>Top Locations</p>
-                {['Mumbai, India', 'Delhi, India', 'Bangalore, India', 'London, UK', 'New York, US'].map((loc, i) => (
-                  <div key={i} className="flex items-center justify-between py-1"><span className="text-[11px]" style={{ color: C.textSec }}>{loc}</span><span className="text-[10px]" style={{ color: C.textDim }}>{[32, 24, 18, 12, 8][i]}%</span></div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </Card>
-      </div>
-    </div>
-  )
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   ENGAGEMENT PAGE (Screenshot 3)
-   ═══════════════════════════════════════════════════════════════ */
-
-function EngagementPage() {
-  const engData = [180000, 220000, 195000, 280000, 240000, 310000, 265000]
-  const likeData = [85000, 105000, 92000, 130000, 115000, 150000, 128000]
-  const shareData = [12000, 15000, 13000, 18000, 16000, 21000, 18000]
-
-  const platformSegments = [
-    { value: 35.6, color: '#FF0000', label: 'YouTube', pct: '35.6%' },
-    { value: 24.8, color: '#E1306C', label: 'Instagram', pct: '24.8%' },
-    { value: 20.1, color: '#1877F2', label: 'Facebook', pct: '20.1%' },
-    { value: 12.4, color: '#000000', label: 'TikTok', pct: '12.4%' },
-    { value: 7.1, color: C.textDim, label: 'Others', pct: '7.1%' },
-  ]
-
-  const audienceData = [
-    { age: '18-24', pct: 30.8, color: C.accent },
-    { age: '25-34', pct: 37.1, color: C.purple },
-    { age: '35-44', pct: 21.0, color: C.info },
-    { age: '45-54', pct: 8.2, color: C.warning },
-    { age: '55+', pct: 2.9, color: C.success },
-  ]
-
-  const topAds = [
-    { name: 'Summer Sale Video', campaign: 'Summer Campaign', eng: '2.4L', er: '8.2%', likes: '1.2L', comments: '45.2K', shares: '18.3K', saves: '12.1K' },
-    { name: 'Gaming Trailer', campaign: 'Gaming Campaign', eng: '1.8L', er: '7.5%', likes: '92K', comments: '38.1K', shares: '15.2K', saves: '9.8K' },
-    { name: 'App Demo Reel', campaign: 'App Install Campaign', eng: '1.2L', er: '6.8%', likes: '65K', comments: '22.5K', shares: '10.4K', saves: '7.2K' },
-    { name: 'Brand Story', campaign: 'Brand Awareness', eng: '95K', er: '5.4%', likes: '48K', comments: '18.7K', shares: '8.1K', saves: '5.5K' },
-    { name: 'Tech Review', campaign: 'Tech Launch', eng: '78K', er: '4.9%', likes: '38K', comments: '15.2K', shares: '6.8K', saves: '4.2K' },
-  ]
-
-  return (
-    <div className="space-y-5 fade-in-up">
-      <PageHeader title="Engagement Overview" subtitle="Monitor interactions and engagement metrics" icon={<TrendingUp className="h-5 w-5" style={{ color: C.accent }} />} extra={
-        <>
-          <button className="flex items-center gap-1.5 rounded-xl border px-3 py-2 text-[12px] font-medium transition-all hover:bg-white/[0.03]" style={{ borderColor: C.border, color: C.textSec }}><Filter className="h-3.5 w-3.5" /> Filter</button>
-          <button className="flex items-center gap-1.5 rounded-xl border px-3 py-2 text-[12px] font-medium transition-all hover:bg-white/[0.03]" style={{ borderColor: C.border, color: C.textSec }}><RefreshCw className="h-3.5 w-3.5" /> Export</button>
-        </>
-      } />
-
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <MetricCard label="Total Engagements" value="24.58L" change="+18.6%" icon={Activity} color={C.accent} sparkline={[18, 22, 20, 28, 24, 31, 27]} />
-        <MetricCard label="Likes" value="12.45L" change="+15.2%" icon={Heart} color={C.purple} sparkline={[12, 14, 13, 17, 15, 19, 16]} />
-        <MetricCard label="Comments" value="2.34L" change="+12.7%" icon={MessageSquare} color={C.info} sparkline={[8, 10, 9, 12, 11, 14, 12]} />
-        <MetricCard label="Shares" value="1.25L" change="+20.4%" icon={Share2} color={C.success} sparkline={[6, 8, 7, 10, 9, 12, 10]} />
-        <MetricCard label="Saves" value="85,113" change="+17.3%" icon={Bookmark} color={C.warning} sparkline={[5, 7, 6, 9, 8, 10, 9]} />
-        <MetricCard label="Click Throughs" value="4.68L" change="+14.8%" icon={MousePointer} color="#e6a817" sparkline={[10, 13, 12, 16, 14, 18, 16]} />
-      </div>
-
-      <Card>
-        <CardHeader title="Engagement Trend" />
-        <div className="relative">
-          <LineChart data={engData} color={C.accent} height={220} labels={['May 3', 'May 4', 'May 5', 'May 6', 'May 7', 'May 8', 'May 9']} />
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: `${C.info}15` }}>
+          <BarChart3 className="h-5 w-5" style={{ color: C.info }} />
         </div>
-        <div className="flex items-center gap-5 mt-3 pt-3 border-t" style={{ borderColor: C.border }}>
-          {[{ l: 'Likes', c: C.purple }, { l: 'Comments', c: C.info }, { l: 'Shares', c: C.success }, { l: 'Saves', c: C.warning }, { l: 'Clicks', c: '#e6a817' }].map(x => (
-            <div key={x.l} className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full" style={{ background: x.c }} /><span className="text-[10px]" style={{ color: C.textTer }}>{x.l}</span></div>
-          ))}
+        <div>
+          <h2 className="text-lg font-bold text-white">Analytics</h2>
+          <p className="text-xs" style={{ color: C.textTer }}>Platform performance overview</p>
         </div>
-      </Card>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader title="Engagement by Platform" />
-          <DonutChart segments={platformSegments} size={160} center="35.6%" />
-        </Card>
-        <Card>
-          <CardHeader title="Engagement Rate"><StatusBadge text="6.78% avg" color={C.success} /></CardHeader>
-          <div className="space-y-4">
-            <div className="rounded-xl p-3 border" style={{ borderColor: C.border, background: 'rgba(255,255,255,0.02)' }}>
-              <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: C.textDim }}>Best Performing</p>
-              <p className="text-sm font-semibold text-white">Summer Sale Video</p>
-              <p className="text-[11px]" style={{ color: C.success }}>ER: 8.2% (+2.4% vs avg)</p>
-            </div>
-            <div className="rounded-xl p-3 border" style={{ borderColor: C.border, background: 'rgba(255,255,255,0.02)' }}>
-              <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: C.textDim }}>Worst Performing</p>
-              <p className="text-sm font-semibold text-white">Tech Review</p>
-              <p className="text-[11px]" style={{ color: C.accent }}>ER: 4.9% (-1.9% vs avg)</p>
-            </div>
-            <div className="rounded-xl p-3 flex items-center gap-2" style={{ background: `${C.info}10`, border: `1px solid ${C.info}20` }}>
-              <Info className="h-4 w-4 flex-shrink-0" style={{ color: C.info }} />
-              <p className="text-[10px] leading-relaxed" style={{ color: C.textSec }}>Engagement rate is higher than 78% of advertisers in your category</p>
-            </div>
-          </div>
-        </Card>
-        <Card>
-          <CardHeader title="Engagement by Audience" />
-          <div className="space-y-3">
-            {audienceData.map(d => (
-              <div key={d.age}>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[11px]" style={{ color: C.textTer }}>{d.age} Years</span>
-                  <span className="text-[11px] font-semibold text-white">{d.pct}%</span>
-                </div>
-                <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
-                  <div className="h-full rounded-full transition-all duration-700" style={{ width: `${(d.pct / 37.1) * 100}%`, background: d.color }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-      </div>
-
-      <Card className="!p-0 overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: C.border }}>
-          <h3 className="text-sm font-semibold text-white">Top Engaging Ads</h3>
-          <button className="text-[11px] font-medium" style={{ color: C.accent }}>View All</button>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead><tr className="border-b" style={{ borderColor: C.border, background: 'rgba(255,255,255,0.02)' }}>
-              {['Ad Preview', 'Campaign', 'Engagements', 'ER %', 'Likes', 'Comments', 'Shares', 'Saves', 'Actions'].map(h => <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textDim }}>{h}</th>)}
-            </tr></thead>
-            <tbody>{topAds.map((a, i) => (
-              <tr key={i} className="border-b transition-colors hover:bg-white/[0.02]" style={{ borderColor: C.border }}>
-                <td className="px-4 py-3"><div className="flex items-center gap-3"><div className="h-9 w-14 rounded-lg flex items-center justify-center text-[9px] font-bold text-white" style={{ background: `${C.accent}30` }}>AD</div><span className="text-[12px] font-medium text-white">{a.name}</span></div></td>
-                <td className="px-4 py-3 text-[11px]" style={{ color: C.textSec }}>{a.campaign}</td>
-                <td className="px-4 py-3 text-[12px] font-semibold" style={{ color: C.accent }}>{a.eng}</td>
-                <td className="px-4 py-3 text-[11px] font-semibold" style={{ color: C.success }}>{a.er}</td>
-                <td className="px-4 py-3 text-[11px]">{a.likes}</td>
-                <td className="px-4 py-3 text-[11px]">{a.comments}</td>
-                <td className="px-4 py-3 text-[11px]">{a.shares}</td>
-                <td className="px-4 py-3 text-[11px]">{a.saves}</td>
-                <td className="px-4 py-3"><button className="rounded-lg p-1.5 transition-colors hover:bg-white/[0.05]" style={{ color: C.textTer }}><MoreHorizontal className="h-3.5 w-3.5" /></button></td>
-              </tr>
-            ))}</tbody>
-          </table>
-        </div>
-      </Card>
-    </div>
-  )
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   REVENUE PAGE (Screenshot 2)
-   ═══════════════════════════════════════════════════════════════ */
-
-function RevenuePage() {
-  const revData = [3200000, 4100000, 3800000, 5200000, 4600000, 5800000, 4900000]
-  const topSources = [
-    { name: 'Summer Sale Campaign', revenue: '₹8.52M', pct: '32%', color: C.accent },
-    { name: 'Gaming Campaign', revenue: '₹6.23M', pct: '23%', color: C.purple },
-    { name: 'Tech Promo Campaign', revenue: '₹4.75M', pct: '18%', color: C.info },
-    { name: 'App Install Campaign', revenue: '₹3.92M', pct: '15%', color: C.warning },
-    { name: 'Brand Awareness', revenue: '₹3.26M', pct: '12%', color: C.success },
-  ]
-
-  const campaigns = [
-    { name: 'Summer Sale', revenue: '₹8.52M', adRev: '₹7.82M', sub: '₹45.2K', other: '₹65.2K', refunds: '₹12.3K', change: '+15.2%', trend: [20, 25, 22, 30, 28, 35, 32] },
-    { name: 'Gaming Promo', revenue: '₹6.23M', adRev: '₹5.65M', sub: '₹32.1K', other: '₹54.8K', refunds: '₹8.5K', change: '+12.8%', trend: [16, 20, 18, 24, 22, 26, 24] },
-    { name: 'Tech Launch', revenue: '₹4.75M', adRev: '₹4.32M', sub: '₹22.4K', other: '₹40.6K', refunds: '₹6.2K', change: '+10.5%', trend: [12, 15, 14, 18, 17, 20, 18] },
-    { name: 'App Install', revenue: '₹3.92M', adRev: '₹3.58M', sub: '₹18.3K', other: '₹31.5K', refunds: '₹5.1K', change: '+8.2%', trend: [10, 12, 11, 15, 14, 16, 15] },
-    { name: 'Brand Aware', revenue: '₹3.26M', adRev: '₹2.98M', sub: '₹14.4K', other: '₹28.1K', refunds: '₹4.2K', change: '+6.4%', trend: [8, 10, 9, 12, 11, 13, 12] },
-  ]
-
-  return (
-    <div className="space-y-5 fade-in-up">
-      <PageHeader title="Revenue Overview" subtitle="Track your revenue performance in real-time" icon={<DollarSign className="h-5 w-5" style={{ color: C.success }} />} extra={
-        <>
-          <button className="flex items-center gap-1.5 rounded-xl border px-3 py-2 text-[12px] font-medium transition-all hover:bg-white/[0.03]" style={{ borderColor: C.border, color: C.textSec }}><Filter className="h-3.5 w-3.5" /> Filter</button>
-          <button className="flex items-center gap-1.5 rounded-xl border px-3 py-2 text-[12px] font-medium transition-all hover:bg-white/[0.03]" style={{ borderColor: C.border, color: C.textSec }}><RefreshCw className="h-3.5 w-3.5" /> Export</button>
-        </>
-      } />
-
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        <MetricCard label="Total Revenue" value="₹26.68M" change="+12.5%" icon={DollarSign} color={C.success} sparkline={[28, 32, 30, 38, 36, 42, 40]} />
-        <MetricCard label="Ad Revenue" value="₹24.15M" change="+10.8%" icon={Megaphone} color={C.accent} sparkline={[24, 28, 26, 34, 32, 38, 36]} />
-        <MetricCard label="Subscription" value="₹1.32M" change="+15.3%" icon={Users} color={C.purple} sparkline={[6, 8, 7, 10, 9, 12, 11]} />
-        <MetricCard label="Other Revenue" value="₹1.20M" change="+8.6%" icon={TrendingUp} color={C.info} sparkline={[5, 7, 6, 8, 7, 9, 8]} />
-        <MetricCard label="Refunds" value="₹99,214" change="-4.3%" positive={false} icon={ArrowDownRight} color={C.warning} sparkline={[8, 7, 8, 6, 7, 6, 7]} />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card>
-          <CardHeader title="Revenue Trend" />
-          <div className="relative">
-            <LineChart data={revData} color={C.accent} height={220} labels={['May 3', 'May 4', 'May 5', 'May 6', 'May 7', 'May 8', 'May 9']} />
-          </div>
-        </Card>
-        <Card>
-          <CardHeader title="Revenue Breakdown" />
-          <DonutChart segments={[
-            { value: 90.5, color: C.accent, label: 'Ad Revenue', pct: '90.5%' },
-            { value: 5.0, color: C.purple, label: 'Subscription', pct: '5.0%' },
-            { value: 4.5, color: C.info, label: 'Other', pct: '4.5%' },
-          ]} size={160} center="₹26.68M" />
-        </Card>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'This Week', value: '₹26.68M', change: '+12.5%', positive: true },
-          { label: 'Last Week', value: '₹23.71M', change: '', positive: true },
-          { label: 'This Month', value: '₹1.02Cr', change: '+18.6%', positive: true },
-          { label: 'Last Month', value: '₹86.45L', change: '', positive: false },
-        ].map(s => (
+          { label: 'Total Views', value: '8.45M', change: '+21.4%', color: C.accent },
+          { label: 'Unique Visitors', value: '1.2M', change: '+15.3%', color: C.info },
+          { label: 'Avg Watch Time', value: '32 min', change: '+8.7%', color: C.purple },
+          { label: 'Bounce Rate', value: '34.2%', change: '-5.1%', color: C.success },
+        ].map((s) => (
           <Card key={s.label}>
             <span className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: C.textDim }}>{s.label}</span>
             <p className="text-xl font-bold text-white mt-2">{s.value}</p>
-            {s.change && <span className="text-[11px] font-medium" style={{ color: s.positive ? C.success : C.accent }}>{s.change}</span>}
+            <span className="text-[11px] font-medium" style={{ color: C.success }}>{s.change}</span>
           </Card>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader title="Average Revenue" />
-          <div className="space-y-4">
-            {[
-              { label: 'Per Day', value: '₹3.81M', change: '+12.5%', pct: 72 },
-              { label: 'Per Campaign', value: '₹18,542', change: '+9.3%', pct: 58 },
-              { label: 'Per Ad Set', value: '₹3,245', change: '+7.8%', pct: 35 },
-            ].map(m => (
-              <div key={m.label}>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[11px]" style={{ color: C.textTer }}>{m.label}</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[12px] font-semibold text-white">{m.value}</span>
-                    <span className="text-[10px] font-medium" style={{ color: C.success }}>{m.change}</span>
-                  </div>
-                </div>
-                <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
-                  <div className="h-full rounded-full transition-all duration-700" style={{ width: `${m.pct}%`, background: C.success }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-        <Card className="lg:col-span-2">
-          <CardHeader title="Revenue by Campaign"><button className="text-[11px] font-medium" style={{ color: C.accent }}>View All</button></CardHeader>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead><tr className="border-b" style={{ borderColor: C.border }}>
-                {['Campaign', 'Revenue', 'Ad Revenue', 'Sub', 'Other', 'Refunds', 'Change', 'Trend'].map(h => <th key={h} className="pb-2 text-left text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textDim }}>{h}</th>)}
-              </tr></thead>
-              <tbody>{campaigns.map((c, i) => (
-                <tr key={i} className="border-b transition-colors hover:bg-white/[0.02]" style={{ borderColor: C.border }}>
-                  <td className="py-2.5 text-[12px] font-medium text-white">{c.name}</td>
-                  <td className="py-2.5 text-[12px] font-semibold" style={{ color: C.success }}>{c.revenue}</td>
-                  <td className="py-2.5 text-[11px]" style={{ color: C.textSec }}>{c.adRev}</td>
-                  <td className="py-2.5 text-[11px]">{c.sub}</td>
-                  <td className="py-2.5 text-[11px]">{c.other}</td>
-                  <td className="py-2.5 text-[11px]" style={{ color: C.accent }}>{c.refunds}</td>
-                  <td className="py-2.5 text-[11px] font-medium" style={{ color: C.success }}>{c.change}</td>
-                  <td className="py-2.5"><MiniSparkline data={c.trend} color={C.success} /></td>
-                </tr>
-              ))}</tbody>
-            </table>
-          </div>
-        </Card>
-      </div>
-
       <Card>
-        <CardHeader title="Top Revenue Sources" />
-        <div className="space-y-3">
-          {topSources.map((s, i) => (
-            <div key={i} className="flex items-center gap-4">
-              <span className="text-[10px] font-bold w-4" style={{ color: C.textDim }}>#{i + 1}</span>
-              <div className="flex-1">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[12px] font-medium text-white">{s.name}</span>
-                  <span className="text-[12px] font-semibold text-white">{s.revenue} ({s.pct})</span>
-                </div>
-                <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
-                  <div className="h-full rounded-full transition-all duration-700" style={{ width: `${parseInt(s.pct)}%`, background: s.color }} />
-                </div>
-              </div>
-            </div>
-          ))}
+        <CardHeader title="Views Over 30 Days" />
+        <div className="flex h-52 items-end gap-[2px]">
+          {days30.map((v, i) => {
+            const max = Math.max(...days30)
+            return (
+              <div key={i} className="flex-1 rounded-t-sm transition-all duration-300 hover:opacity-70" style={{ height: `${(v / max) * 100}%`, background: `linear-gradient(180deg, ${C.accent}50, ${C.accent}08)` }} />
+            )
+          })}
         </div>
       </Card>
-    </div>
-  )
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   BANNER ANALYTICS PAGE (Screenshot 5)
-   ═══════════════════════════════════════════════════════════════ */
-
-function BannerAnalyticsPage() {
-  const [activeFilter, setActiveFilter] = useState('all')
-  const bannerTabs = ['All Banners', 'Active', 'Paused', 'Draft', 'Archived']
-  const impData = [35000, 42000, 38000, 48000, 42560, 45000, 40000]
-  const clickData = [800, 1100, 950, 1350, 1250, 1150, 1050]
-
-  const topBanners = [
-    { name: 'Summer Sale Banner', impressions: '4,25,600', clicks: '15,420', ctr: '3.62%', revenue: '₹1,25,430.50' },
-    { name: 'Gaming Promo Banner', impressions: '3,12,480', clicks: '9,850', ctr: '3.15%', revenue: '₹89,250.20' },
-    { name: 'App Install Banner', impressions: '2,85,640', clicks: '7,860', ctr: '2.75%', revenue: '₹65,430.80' },
-    { name: 'New Collection Banner', impressions: '2,10,350', clicks: '6,240', ctr: '2.97%', revenue: '₹58,320.10' },
-    { name: 'Brand Awareness Banner', impressions: '1,95,820', clicks: '5,120', ctr: '2.62%', revenue: '₹42,180.40' },
-  ]
-
-  const allBanners = [
-    { name: 'Summer Sale Banner', placement: 'Top', status: 'Active', impressions: '4,25,600', clicks: '15,420', ctr: '3.62%', cpc: '₹3.21', revenue: '₹1,25,430', conv: '2,450' },
-    { name: 'Gaming Promo Banner', placement: 'Middle', status: 'Active', impressions: '3,12,480', clicks: '9,850', ctr: '3.15%', cpc: '₹3.12', revenue: '₹89,250', conv: '1,620' },
-    { name: 'App Install Banner', placement: 'Bottom', status: 'Active', impressions: '2,85,640', clicks: '7,860', ctr: '2.75%', cpc: '₹2.87', revenue: '₹65,430', conv: '1,230' },
-    { name: 'New Collection Banner', placement: 'Top', status: 'Paused', impressions: '2,10,350', clicks: '6,240', ctr: '2.97%', cpc: '₹3.05', revenue: '₹58,320', conv: '980' },
-    { name: 'Brand Awareness Banner', placement: 'Sidebar', status: 'Active', impressions: '1,95,820', clicks: '5,120', ctr: '2.62%', cpc: '₹2.91', revenue: '₹42,180', conv: '750' },
-  ]
-
-  return (
-    <div className="space-y-5 fade-in-up">
-      <PageHeader title="Banner Analytics" subtitle="Track detailed performance metrics for all banner advertisements" icon={<ImageIcon className="h-5 w-5" style={{ color: C.warning }} />} extra={
-        <>
-          <button className="flex items-center gap-1.5 rounded-xl border px-3 py-2 text-[12px] font-medium transition-all hover:bg-white/[0.03]" style={{ borderColor: C.border, color: C.textSec }}><Filter className="h-3.5 w-3.5" /> Filter</button>
-          <button className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-[12px] font-semibold text-white" style={{ background: C.accent }}><RefreshCw className="h-3.5 w-3.5" /> Export Report</button>
-        </>
-      } />
-
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <MetricCard label="Total Impressions" value="24.58L" change="+18.6%" icon={Eye} color={C.accent} sparkline={[18, 22, 20, 28, 24, 30, 28]} />
-        <MetricCard label="Total Clicks" value="73,842" change="+14.3%" icon={MousePointer} color={C.purple} sparkline={[12, 16, 14, 20, 18, 22, 20]} />
-        <MetricCard label="CTR (Avg.)" value="2.99%" change="+6.7%" icon={Activity} color={C.info} sparkline={[5, 6, 5.5, 7, 6.5, 7.5, 6.8]} />
-        <MetricCard label="Total Revenue" value="₹26.68M" change="+12.5%" icon={DollarSign} color={C.success} sparkline={[28, 32, 30, 38, 36, 42, 40]} />
-        <MetricCard label="Avg. CPC" value="₹3.62" change="-4.2%" positive={false} icon={ArrowDownRight} color={C.warning} sparkline={[22, 20, 21, 19, 18, 17, 18.7]} />
-        <MetricCard label="Total Conversions" value="12,450" change="+10.2%" icon={CheckCircle} color="#e6a817" sparkline={[8, 10, 9, 14, 12, 16, 14]} />
-      </div>
-
-      <Card>
-        <CardHeader title="Performance Overview" />
-        <div className="relative">
-          <LineChart data={impData} color={C.accent} height={200} labels={['May 3', 'May 4', 'May 5', 'May 6', 'May 7', 'May 8', 'May 9']} />
-        </div>
-        <div className="flex items-center gap-5 mt-3 pt-3 border-t" style={{ borderColor: C.border }}>
-          {[{ l: 'Impressions', c: C.accent }, { l: 'Clicks', c: C.purple }, { l: 'CTR', c: C.info }].map(x => (
-            <div key={x.l} className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full" style={{ background: x.c }} /><span className="text-[10px]" style={{ color: C.textTer }}>{x.l}</span></div>
-          ))}
-        </div>
-      </Card>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card>
-          <CardHeader title="Top Performing Banners"><button className="text-[11px] font-medium" style={{ color: C.accent }}>View All</button></CardHeader>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead><tr className="border-b" style={{ borderColor: C.border }}>
-                {['#', 'Banner', 'Impressions', 'Clicks', 'CTR', 'Revenue'].map(h => <th key={h} className="pb-2 text-left text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textDim }}>{h}</th>)}
-              </tr></thead>
-              <tbody>{topBanners.map((b, i) => (
-                <tr key={i} className="border-b transition-colors hover:bg-white/[0.02]" style={{ borderColor: C.border }}>
-                  <td className="py-2.5 text-[11px]" style={{ color: C.textDim }}>{i + 1}</td>
-                  <td className="py-2.5 text-[12px] font-medium text-white">{b.name}</td>
-                  <td className="py-2.5 text-[11px]" style={{ color: C.textSec }}>{b.impressions}</td>
-                  <td className="py-2.5 text-[11px]">{b.clicks}</td>
-                  <td className="py-2.5 text-[11px] font-semibold" style={{ color: C.success }}>{b.ctr}</td>
-                  <td className="py-2.5 text-[11px] font-semibold" style={{ color: C.accent }}>{b.revenue}</td>
-                </tr>
-              ))}</tbody>
-            </table>
-          </div>
-        </Card>
-        <Card className="!p-0 overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: C.border }}>
-            <h3 className="text-sm font-semibold text-white">Banner Performance Table</h3>
-            <div className="flex gap-2"><button className="rounded-lg p-1.5 transition-colors hover:bg-white/[0.05]" style={{ color: C.textTer }}><RefreshCw className="h-3.5 w-3.5" /></button></div>
-          </div>
-          <div className="flex gap-1 px-5 pt-3">
-            {bannerTabs.map(t => (
-              <button key={t} onClick={() => setActiveFilter(t.toLowerCase().split(' ')[0])} className="px-3 py-1.5 text-[10px] font-medium rounded-lg transition-all" style={{ background: activeFilter === t.toLowerCase().split(' ')[0] ? C.accent : 'transparent', color: activeFilter === t.toLowerCase().split(' ')[0] ? '#fff' : C.textTer }}>{t}</button>
-            ))}
-          </div>
-          <div className="overflow-x-auto mt-3">
-            <table className="w-full">
-              <thead><tr className="border-b" style={{ borderColor: C.border, background: 'rgba(255,255,255,0.02)' }}>
-                {['Banner Info', 'Placement', 'Status', 'Impressions', 'Clicks', 'CTR', 'CPC', 'Revenue', 'Conv.', 'Actions'].map(h => <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textDim }}>{h}</th>)}
-              </tr></thead>
-              <tbody>{allBanners.map((b, i) => (
-                <tr key={i} className="border-b transition-colors hover:bg-white/[0.02]" style={{ borderColor: C.border }}>
-                  <td className="px-4 py-3 text-[12px] font-medium text-white">{b.name}</td>
-                  <td className="px-4 py-3 text-[11px]" style={{ color: C.textSec }}>{b.placement}</td>
-                  <td className="px-4 py-3"><StatusBadge text={b.status} color={b.status === 'Active' ? C.success : C.warning} /></td>
-                  <td className="px-4 py-3 text-[11px]">{b.impressions}</td>
-                  <td className="px-4 py-3 text-[11px]">{b.clicks}</td>
-                  <td className="px-4 py-3 text-[11px] font-semibold" style={{ color: C.success }}>{b.ctr}</td>
-                  <td className="px-4 py-3 text-[11px]">{b.cpc}</td>
-                  <td className="px-4 py-3 text-[11px] font-semibold" style={{ color: C.accent }}>{b.revenue}</td>
-                  <td className="px-4 py-3 text-[11px]">{b.conv}</td>
-                  <td className="px-4 py-3"><div className="flex gap-1"><button className="rounded-lg p-1.5 transition-colors hover:bg-white/[0.05]" style={{ color: C.textTer }}><Eye className="h-3.5 w-3.5" /></button><button className="rounded-lg p-1.5 transition-colors hover:bg-white/[0.05]" style={{ color: C.textTer }}><MoreHorizontal className="h-3.5 w-3.5" /></button></div></td>
-                </tr>
-              ))}</tbody>
-            </table>
-          </div>
-          <div className="flex items-center justify-between px-5 py-3 border-t" style={{ borderColor: C.border }}>
-            <span className="text-[11px]" style={{ color: C.textTer }}>Showing 1 to 5 of 25</span>
-            <div className="flex items-center gap-1">
-              {[1, 2, 3, 4, 5].map(p => (
-                <button key={p} className="flex h-7 w-7 items-center justify-center rounded-lg text-[11px] font-medium transition-colors" style={{ background: p === 1 ? C.accent : 'transparent', color: p === 1 ? '#fff' : C.textTer }}>{p}</button>
-              ))}
-            </div>
-          </div>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card>
-          <CardHeader title="CTR by Placement"><button className="text-[11px] font-medium" style={{ color: C.accent }}>View Full Report</button></CardHeader>
-          <DonutChart segments={[
-            { value: 3.62, color: C.accent, label: 'Top', pct: '3.62%' },
-            { value: 3.15, color: C.purple, label: 'Middle', pct: '3.15%' },
-            { value: 2.75, color: C.info, label: 'Bottom', pct: '2.75%' },
-            { value: 2.62, color: C.warning, label: 'Sidebar', pct: '2.62%' },
-            { value: 2.10, color: C.success, label: 'Others', pct: '2.10%' },
-          ]} size={150} center="2.99%" />
-        </Card>
-        <Card>
-          <CardHeader title="Device Performance"><button className="text-[11px] font-medium" style={{ color: C.accent }}>View Full Report</button></CardHeader>
-          <DonutChart segments={[
-            { value: 65.2, color: C.accent, label: 'Mobile', pct: '65.2%' },
-            { value: 28.6, color: C.purple, label: 'Desktop', pct: '28.6%' },
-            { value: 6.2, color: C.info, label: 'Tablet', pct: '6.2%' },
-          ]} size={150} center="65.2%" />
-          <p className="text-[9px] text-center mt-2" style={{ color: C.textDim }}>Data based on impressions</p>
-        </Card>
-      </div>
     </div>
   )
 }
@@ -3182,9 +2540,8 @@ function RTMPConfigPage() {
 function renderPage(page: AdminPage): React.ReactNode {
   if (page === 'dashboard') return <DashboardPage />
   if (page === 'live-monitor') return <LiveMonitorPage />
-  if (page === 'analytics') return <AnalyticsPage />
-  if (page === 'engagement') return <EngagementPage />
-  if (page === 'revenue') return <RevenuePage />
+  if (page === 'analytics' || page === 'engagement') return <AnalyticsPage />
+  if (page === 'revenue') return <GenericPage title="Revenue" subtitle="Financial overview" icon={<DollarSign className="h-5 w-5" style={{ color: C.success }} />} accent={C.success} />
   if (page === 'settings') return <SettingsPage />
   if (page === 'users') return <OnlineUsersPage />
   if (page === 'live-control') return <LiveControlPage />
@@ -3194,7 +2551,7 @@ function renderPage(page: AdminPage): React.ReactNode {
   if (page === 'categories') return <GenericPage title="Categories" subtitle="Content categories" icon={<FolderOpen className="h-5 w-5" style={{ color: C.purple }} />} accent={C.purple} />
   if (page === 'schedules') return <GenericPage title="Schedules" subtitle="Match schedules" icon={<CalendarClock className="h-5 w-5" style={{ color: C.info }} />} accent={C.info} />
   if (page === 'comments') return <GenericPage title="Comments" subtitle="User comments" icon={<MessageSquare className="h-5 w-5" style={{ color: C.success }} />} accent={C.success} />
-  if (page === 'banners') return <BannerAnalyticsPage />
+  if (page === 'banners') return <GenericPage title="Banners" subtitle="Promotional banners" icon={<ImageIcon className="h-5 w-5" style={{ color: C.warning }} />} accent={C.warning} />
   if (page === 'activity-logs') return <GenericPage title="Activity Logs" subtitle="System activity" icon={<ClipboardList className="h-5 w-5" style={{ color: C.textSec }} />} accent={C.textSec} />
   if (page === 'notifications') return <GenericPage title="Notifications" subtitle="Notification management" icon={<Bell className="h-5 w-5" style={{ color: C.warning }} />} accent={C.warning} />
   if (page === 'admins') return <GenericPage title="Admins" subtitle="Admin team management" icon={<ShieldCheck className="h-5 w-5" style={{ color: C.info }} />} accent={C.info} />
