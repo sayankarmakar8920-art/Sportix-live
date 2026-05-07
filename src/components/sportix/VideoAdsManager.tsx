@@ -12,7 +12,7 @@ import {
   ChevronDown, ChevronLeft, ChevronRight, Calendar, Plus, FileVideo,
   Image, Edit3, Trash2, MoreHorizontal, Info, Zap, Clock, Film,
   BarChart3, RefreshCw, ArrowUpRight, ArrowDownRight, Monitor,
-  Smartphone, Tablet, Settings, Check, XCircle, GripVertical, SkipForward,
+  Smartphone, Tablet, Settings, Check, XCircle, GripVertical, SkipForward, List,
 } from 'lucide-react'
 
 /* ═══════════════════════════════════════════════════════════════
@@ -47,7 +47,7 @@ const CHART_COLORS = ['#3b82f6', '#22c55e', '#eab308', '#ec4899', '#a855f7']
 /* ═══════════════════════════════════════════════════════════════
    TYPES
    ═══════════════════════════════════════════════════════════════ */
-type Tab = 'overview' | 'upload' | 'ads-list' | 'timeline' | 'settings'
+type Tab = 'overview' | 'upload' | 'ads-list' | 'timeline' | 'settings' | 'pre-roll' | 'mid-roll' | 'post-roll'
 
 interface AdItem {
   id: string
@@ -309,8 +309,11 @@ export default function VideoAdsManager() {
   /* Tabs */
   const tabs: { id: Tab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
     { id: 'overview', label: 'Overview', icon: BarChart3 },
+    { id: 'pre-roll', label: 'Pre-Roll', icon: Play },
+    { id: 'mid-roll', label: 'Mid-Roll', icon: Film },
+    { id: 'post-roll', label: 'Post-Roll', icon: SkipForward },
     { id: 'upload', label: 'Upload Ad', icon: CloudUpload },
-    { id: 'ads-list', label: 'All Ads', icon: Film },
+    { id: 'ads-list', label: 'All Ads', icon: List },
     { id: 'timeline', label: 'Timeline', icon: Clock },
     { id: 'settings', label: 'Settings', icon: Settings },
   ]
@@ -1158,6 +1161,124 @@ export default function VideoAdsManager() {
           </motion.div>
         </AnimatePresence>
       )}
+
+      {/* ════════════════════════════════════════════════════
+          PRE-ROLL / MID-ROLL / POST-ROLL TABS
+          ════════════════════════════════════════════════════ */}
+      {(activeTab === 'pre-roll' || activeTab === 'mid-roll' || activeTab === 'post-roll') && (() => {
+        const rollType = activeTab === 'pre-roll' ? 'Pre-roll' : activeTab === 'mid-roll' ? 'Mid-roll' : 'Post-roll'
+        const rollColor = activeTab === 'pre-roll' ? C.info : activeTab === 'mid-roll' ? C.warning : C.purple
+        const placementMap: Record<string, string> = { 'pre-roll': 'Pre-roll', 'mid-roll': 'Mid-roll', 'post-roll': 'Post-roll' }
+        const filteredRollAds = ads.filter(a => a.placement === placementMap[activeTab])
+
+        return (
+          <AnimatePresence mode="wait">
+            <motion.div key={activeTab} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-4">
+              {/* Header Card */}
+              <GlassCard>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl flex items-center justify-center" style={{ background: `${rollColor}15` }}>
+                      {activeTab === 'pre-roll' ? <Play className="h-5 w-5" style={{ color: rollColor }} /> : activeTab === 'mid-roll' ? <Film className="h-5 w-5" style={{ color: rollColor }} /> : <SkipForward className="h-5 w-5" style={{ color: rollColor }} />}
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-white">{rollType} Ads</h3>
+                      <p className="text-[11px]" style={{ color: C.textTer }}>
+                        {activeTab === 'pre-roll' ? 'Ads displayed before video starts' : activeTab === 'mid-roll' ? 'Ads inserted during video playback' : 'Ads shown after video ends'}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowCreateModal(true)}
+                    className="flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold text-white transition-all hover:brightness-110"
+                    style={{ background: rollColor }}
+                  >
+                    <Plus className="h-4 w-4" /> Add {rollType} Ad
+                  </button>
+                </div>
+
+                {/* Stats Row */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
+                  {[
+                    { label: 'Total Ads', value: filteredRollAds.length, color: rollColor },
+                    { label: 'Active', value: filteredRollAds.filter(a => a.status === 'Active').length, color: C.success },
+                    { label: 'Total Impressions', value: fmtNum(filteredRollAds.reduce((s, a) => s + a.impressions, 0)), color: C.warning },
+                    { label: 'Total Revenue', value: fmtCurrency(filteredRollAds.reduce((s, a) => s + a.revenue, 0)), color: C.accent },
+                  ].map((s, i) => (
+                    <div key={i} className="rounded-xl p-3" style={{ background: `${s.color}08`, border: `1px solid ${s.color}18` }}>
+                      <p className="text-[10px]" style={{ color: C.textDim }}>{s.label}</p>
+                      <p className="text-base font-bold text-white mt-0.5">{s.value}</p>
+                    </div>
+                  ))}
+                </div>
+              </GlassCard>
+
+              {/* Ads List */}
+              {filteredRollAds.length > 0 ? (
+                <GlassCard style={{ padding: 0 }}>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-[11px]">
+                      <thead>
+                        <tr className="border-b" style={{ borderColor: C.border }}>
+                          {['Ad Name', 'Status', 'Duration', 'Impressions', 'Clicks', 'Revenue', 'CTR', 'Actions'].map(h => (
+                            <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textDim }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredRollAds.map(ad => (
+                          <motion.tr key={ad.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="border-b transition-colors hover:bg-white/[0.02]" style={{ borderColor: C.border }}>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-2.5">
+                                <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ background: `${rollColor}15` }}>
+                                  <FileVideo className="h-4 w-4" style={{ color: rollColor }} />
+                                </div>
+                                <span className="font-medium text-white">{ad.name}</span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold" style={{
+                                background: ad.status === 'Active' ? C.successDim : ad.status === 'Paused' ? 'rgba(234,179,8,0.12)' : 'rgba(255,255,255,0.06)',
+                                color: ad.status === 'Active' ? C.success : ad.status === 'Paused' ? C.warning : C.textDim,
+                              }}>
+                                {ad.status}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 font-mono" style={{ color: C.textSec }}>{ad.duration}</td>
+                            <td className="px-4 py-3 font-medium text-white">{fmtNum(ad.impressions)}</td>
+                            <td className="px-4 py-3 font-medium text-white">{fmtNum(ad.clicks)}</td>
+                            <td className="px-4 py-3 font-medium text-white">{fmtCurrency(ad.revenue)}</td>
+                            <td className="px-4 py-3 font-medium text-white">{ad.ctr.toFixed(2)}%</td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-1">
+                                <button className="h-7 w-7 rounded-lg flex items-center justify-center hover:bg-white/[0.06]" style={{ color: C.textSec }}><Edit3 className="h-3.5 w-3.5" /></button>
+                                <button className="h-7 w-7 rounded-lg flex items-center justify-center hover:bg-red-500/10" style={{ color: C.accent }}><Trash2 className="h-3.5 w-3.5" /></button>
+                              </div>
+                            </td>
+                          </motion.tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </GlassCard>
+              ) : (
+                <GlassCard className="!py-12">
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="h-14 w-14 rounded-2xl flex items-center justify-center" style={{ background: `${rollColor}10` }}>
+                      {activeTab === 'pre-roll' ? <Play className="h-7 w-7" style={{ color: rollColor }} /> : activeTab === 'mid-roll' ? <Film className="h-7 w-7" style={{ color: rollColor }} /> : <SkipForward className="h-7 w-7" style={{ color: rollColor }} />}
+                    </div>
+                    <p className="text-sm font-medium text-white">No {rollType.toLowerCase()} ads yet</p>
+                    <p className="text-[11px]" style={{ color: C.textTer }}>Add your first {rollType.toLowerCase()} ad to get started</p>
+                    <button onClick={() => setShowCreateModal(true)} className="flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold text-white mt-1 transition-all hover:brightness-110" style={{ background: rollColor }}>
+                      <Plus className="h-4 w-4" /> Create {rollType} Ad
+                    </button>
+                  </div>
+                </GlassCard>
+              )}
+            </motion.div>
+          </AnimatePresence>
+        )
+      })()}
 
       {/* ════════════════════════════════════════════════════
           CREATE AD MODAL

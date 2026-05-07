@@ -80,6 +80,7 @@ import {
 } from 'lucide-react'
 
 import VideoAdsManager from './VideoAdsManager'
+import VideosPage from './VideosPage'
 
 /* ═══════════════════════════════════════════════════════════════
    DESIGN SYSTEM
@@ -7221,7 +7222,7 @@ function renderPage(page: AdminPage): React.ReactNode {
   if (page === 'settings') return <SettingsPage />
   if (page === 'users') return <OnlineUsersPage />
   if (page === 'live-control') return <LiveControlPage />
-  if (page === 'videos') return <GenericPage title="Videos" subtitle="Video content library" icon={<Video className="h-5 w-5" style={{ color: C.info }} />} accent={C.info} />
+  if (page === 'videos') return <VideosPage />
   if (page === 'highlights') return <VideoUploadPage />
   if (page === 'reports') return <GenericPage title="Reports" subtitle="User reports moderation" icon={<AlertTriangle className="h-5 w-5" style={{ color: C.accent }} />} accent={C.accent} />
   if (page === 'categories') return <CategoriesPage />
