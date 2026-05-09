@@ -1,10 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, useRef } from 'react'
-import {
-  AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis,
-  CartesianGrid, Tooltip, ResponsiveContainer,
-} from 'recharts'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import {
   Eye, MousePointerClick, DollarSign, TrendingUp, Target,
   Download, Upload, CloudUpload, Pause, X, Play, Search, Filter,
@@ -156,19 +152,219 @@ function GlassCard({ children, className = '', style }: { children: React.ReactN
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   CHART TOOLTIP
+   PURE SVG AREA CHART (replaces recharts AreaChart)
    ═══════════════════════════════════════════════════════════════ */
-function ChartTip({ active, payload, label }: any) {
-  if (!active || !payload?.length) return null
+interface AreaSeries {
+  dataKey: string
+  name: string
+  color: string
+  gradientId: string
+}
+
+function SvgAreaChart({ data, series, xKey = 'date', height = 280 }: {
+  data: Record<string, any>[]
+  series: AreaSeries[]
+  xKey?: string
+  height?: number
+}) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [tooltip, setTooltip] = useState<{ x: number; y: number; label: string; items: { name: string; color: string; value: number }[] } | null>(null)
+  const [svgW, setSvgW] = useState(600)
+
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const ro = new ResizeObserver(entries => {
+      for (const entry of entries) {
+        setSvgW(entry.contentRect.width)
+      }
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  const padL = 10
+  const padR = 10
+  const padT = 8
+  const padB = 28
+  const chartW = svgW - padL - padR
+  const chartH = height - padT - padB
+
+  // Build point arrays for each series
+  const allValues = data.flatMap(d => series.map(s => (d[s.dataKey] as number) || 0))
+  const maxVal = Math.max(...allValues, 1)
+
+  const getX = (i: number) => padL + (i / Math.max(data.length - 1, 1)) * chartW
+  const getY = (v: number) => padT + chartH - (v / maxVal) * chartH
+
+  const buildPolyline = (dataKey: string) => {
+    return data.map((d, i) => {
+      const v = (d[dataKey] as number) || 0
+      return `${getX(i).toFixed(1)},${getY(v).toFixed(1)}`
+    }).join(' ')
+  }
+
+  const buildAreaPath = (dataKey: string) => {
+    const points = data.map((d, i) => {
+      const v = (d[dataKey] as number) || 0
+      return `${getX(i).toFixed(1)},${getY(v).toFixed(1)}`
+    })
+    const x0 = getX(0).toFixed(1)
+    const xn = getX(data.length - 1).toFixed(1)
+    const baseY = (padT + chartH).toFixed(1)
+    return `M${x0},${baseY} L${points.join(' L')} L${xn},${baseY} Z`
+  }
+
+  // X-axis labels
+  const xLabels = data.filter((_, i) => i % 5 === 0 || i === data.length - 1)
+
+  const handleMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+    const svg = containerRef.current?.querySelector('svg')
+    if (!svg) return
+    const rect = svg.getBoundingClientRect()
+    const mx = e.clientX - rect.left
+    const ratio = (mx - padL) / chartW
+    const idx = Math.round(ratio * (data.length - 1))
+    if (idx < 0 || idx >= data.length) { setTooltip(null); return }
+
+    const x = getX(idx)
+    const topItem = series.map(s => ({ name: s.name, color: s.color, value: (data[idx][s.dataKey] as number) || 0 }))
+      .sort((a, b) => b.value - a.value)[0]
+    setTooltip({
+      x,
+      y: padT,
+      label: data[idx][xKey] as string,
+      items: series.map(s => ({ name: s.name, color: s.color, value: (data[idx][s.dataKey] as number) || 0 })),
+    })
+  }, [data, series, xKey, padL, chartW, padT, getX])
+
+  const handleMouseLeave = useCallback(() => { setTooltip(null) }, [setTooltip])
+
   return (
-    <div className="rounded-xl px-3 py-2 text-xs" style={{ background: 'rgba(0,0,0,0.85)', border: '1px solid rgba(255,255,255,0.1)' }}>
-      <p className="text-white/60 mb-1">{label}</p>
-      {payload.map((p: any, i: number) => (
-        <p key={i} style={{ color: p.color }} className="font-medium">
-          {p.name}: {p.name === 'Revenue' ? `$${p.value.toLocaleString()}` : fmtNum(p.value)}
-        </p>
-      ))}
+    <div ref={containerRef} style={{ width: '100%', height, position: 'relative' }}>
+      <svg width="100%" height={height} viewBox={`0 0 ${svgW} ${height}`} preserveAspectRatio="none"
+        onMouseMove={handleMouseMove} onMouseLeave={handleMouseLeave} style={{ overflow: 'visible' }}>
+        <defs>
+          {series.map(s => (
+            <linearGradient key={s.gradientId} id={s.gradientId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={s.color} stopOpacity={0.3} />
+              <stop offset="100%" stopColor={s.color} stopOpacity={0} />
+            </linearGradient>
+          ))}
+        </defs>
+
+        {/* Grid lines */}
+        {Array.from({ length: 5 }).map((_, i) => {
+          const y = padT + (chartH / 4) * i
+          return <line key={i} x1={padL} y1={y} x2={svgW - padR} y2={y} stroke="rgba(255,255,255,0.04)" strokeDasharray="3 3" />
+        })}
+
+        {/* X-axis labels */}
+        {xLabels.map((d, i) => {
+          const idx = data.indexOf(d)
+          if (idx === -1) return null
+          return (
+            <text key={i} x={getX(idx)} y={height - 4} textAnchor="middle" fill="#52525b" fontSize="9" fontFamily="system-ui">
+              {d[xKey]}
+            </text>
+          )
+        })}
+
+        {/* Area fills (render in reverse so first series is on top) */}
+        {[...series].reverse().map(s => (
+          <path key={`area-${s.dataKey}`} d={buildAreaPath(s.dataKey)} fill={`url(#${s.gradientId})`} />
+        ))}
+
+        {/* Lines */}
+        {series.map(s => (
+          <polyline key={`line-${s.dataKey}`} points={buildPolyline(s.dataKey)}
+            fill="none" stroke={s.color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+        ))}
+      </svg>
+
+      {/* Tooltip */}
+      {tooltip && (
+        <div
+          className="absolute pointer-events-none z-10 rounded-xl px-3 py-2 text-xs"
+          style={{
+            background: 'rgba(0,0,0,0.9)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            left: Math.min(tooltip.x, svgW - 140),
+            top: tooltip.y + 8,
+            transform: 'translateX(-50%)',
+          }}
+        >
+          <p className="text-white/60 mb-1" style={{ fontSize: 10 }}>{tooltip.label}</p>
+          {tooltip.items.map((item, i) => (
+            <p key={i} style={{ color: item.color, fontSize: 11 }} className="font-medium">
+              {item.name}: {item.name === 'Revenue' ? `$${item.value.toLocaleString()}` : fmtNum(item.value)}
+            </p>
+          ))}
+        </div>
+      )}
     </div>
+  )
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PURE SVG DONUT CHART (replaces recharts PieChart)
+   ═══════════════════════════════════════════════════════════════ */
+function SvgDonutChart({ data, size = 170, innerR = 50, outerR = 75, id = 'donut' }: {
+  data: { name: string; value: number; color: string }[]
+  size?: number
+  innerR?: number
+  outerR?: number
+  id?: string
+}) {
+  const cx = size / 2
+  const cy = size / 2
+  const total = data.reduce((s, d) => s + d.value, 0)
+  const [hovered, setHovered] = useState<string | null>(null)
+
+  const segments = data.reduce<Array<{ name: string; value: number; color: string; startAngle: number; endAngle: number; startRad: number; endRad: number; pathD: string }>>((acc, d) => {
+    const angle = total > 0 ? (d.value / total) * 360 : 0
+    const startAngle = acc.length === 0 ? -90 : acc[acc.length - 1].endAngle
+    const endAngle = startAngle + angle
+
+    const startRad = (startAngle * Math.PI) / 180
+    const endRad = (endAngle * Math.PI) / 180
+
+    const gap = data.length > 1 ? 1.5 : 0
+    const gapRad = (gap * Math.PI) / 180
+
+    const x1 = cx + outerR * Math.cos(startRad + gapRad)
+    const y1 = cy + outerR * Math.sin(startRad + gapRad)
+    const x2 = cx + outerR * Math.cos(endRad - gapRad)
+    const y2 = cy + outerR * Math.sin(endRad - gapRad)
+    const x3 = cx + innerR * Math.cos(endRad - gapRad)
+    const y3 = cy + innerR * Math.sin(endRad - gapRad)
+    const x4 = cx + innerR * Math.cos(startRad + gapRad)
+    const y4 = cy + innerR * Math.sin(startRad + gapRad)
+
+    const largeArc = angle > 180 ? 1 : 0
+    const path = `M${x1.toFixed(2)},${y1.toFixed(2)} A${outerR},${outerR} 0 ${largeArc} 1 ${x2.toFixed(2)},${y2.toFixed(2)} L${x3.toFixed(2)},${y3.toFixed(2)} A${innerR},${innerR} 0 ${largeArc} 0 ${x4.toFixed(2)},${y4.toFixed(2)} Z`
+
+    return { ...d, pathD: path, startAngle, endAngle, startRad, endRad, pct: total > 0 ? ((d.value / total) * 100).toFixed(1) : '0' }
+  }, [])
+
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      {segments.map(seg => (
+        <path
+          key={seg.name}
+          d={seg.pathD}
+          fill={seg.color}
+          stroke="none"
+          style={{
+            opacity: hovered && hovered !== seg.name ? 0.5 : 1,
+            transition: 'opacity 0.2s',
+            cursor: 'pointer',
+          }}
+          onMouseEnter={() => setHovered(seg.name)}
+          onMouseLeave={() => setHovered(null)}
+        />
+      ))}
+    </svg>
   )
 }
 
@@ -337,7 +533,7 @@ export default function HeroFooterAdsManager() {
       {activeTab === 'overview' && (
         <div className="space-y-3">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-2.5">
-              {/* Performance Chart */}
+              {/* Performance Chart — Pure SVG */}
               <GlassCard className="lg:col-span-2" style={{ padding: 0 }}>
                 <div className="flex items-center justify-between px-3 pt-3 pb-2">
                   <div className="flex items-center gap-2">
@@ -346,23 +542,16 @@ export default function HeroFooterAdsManager() {
                   </div>
                   <button className="flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[10px] font-medium" style={{ borderColor: C.border, color: C.textSec }}>Last 30 Days <ChevronDown className="h-3 w-3" /></button>
                 </div>
-                <div className="px-3 pb-3 h-72">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={PERF_DATA} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="gImp2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#3b82f6" stopOpacity={0.3} /><stop offset="100%" stopColor="#3b82f6" stopOpacity={0} /></linearGradient>
-                        <linearGradient id="gClk2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#22c55e" stopOpacity={0.3} /><stop offset="100%" stopColor="#22c55e" stopOpacity={0} /></linearGradient>
-                        <linearGradient id="gRev2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#f77f00" stopOpacity={0.3} /><stop offset="100%" stopColor="#f77f00" stopOpacity={0} /></linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
-                      <XAxis dataKey="date" tick={{ fill: '#52525b', fontSize: 10 }} axisLine={false} tickLine={false} />
-                      <YAxis tick={{ fill: '#52525b', fontSize: 10 }} axisLine={false} tickLine={false} />
-                      <Tooltip content={<ChartTip />} />
-                      <Area type="monotone" dataKey="impressions" stroke="#3b82f6" fill="url(#gImp2)" strokeWidth={2} name="Impressions" />
-                      <Area type="monotone" dataKey="clicks" stroke="#22c55e" fill="url(#gClk2)" strokeWidth={2} name="Clicks" />
-                      <Area type="monotone" dataKey="revenue" stroke="#f77f00" fill="url(#gRev2)" strokeWidth={2} name="Revenue" />
-                    </AreaChart>
-                  </ResponsiveContainer>
+                <div className="px-3 pb-3" style={{ height: 288 }}>
+                  <SvgAreaChart
+                    data={PERF_DATA}
+                    height={288}
+                    series={[
+                      { dataKey: 'impressions', name: 'Impressions', color: '#3b82f6', gradientId: 'gImp2' },
+                      { dataKey: 'clicks', name: 'Clicks', color: '#22c55e', gradientId: 'gClk2' },
+                      { dataKey: 'revenue', name: 'Revenue', color: '#f77f00', gradientId: 'gRev2' },
+                    ]}
+                  />
                 </div>
                 <div className="flex items-center justify-center gap-5 pb-4">
                   {[{ label: 'Impressions', color: '#3b82f6' }, { label: 'Clicks', color: '#22c55e' }, { label: 'Revenue', color: '#f77f00' }].map(l => (
@@ -371,19 +560,12 @@ export default function HeroFooterAdsManager() {
                 </div>
               </GlassCard>
 
-              {/* Placement Distribution */}
+              {/* Placement Distribution — Pure SVG Donut */}
               <GlassCard>
                 <h3 className="text-sm font-semibold text-white mb-2">Placement Distribution</h3>
                 <div className="flex justify-center">
-                  <div className="relative">
-                    <ResponsiveContainer width={170} height={170}>
-                      <PieChart>
-                        <Pie data={PLACEMENT_DATA} cx="50%" cy="50%" innerRadius={50} outerRadius={75} paddingAngle={3} dataKey="value" stroke="none">
-                          {PLACEMENT_DATA.map((e, i) => <Cell key={i} fill={e.color} />)}
-                        </Pie>
-                        <Tooltip content={<ChartTip />} />
-                      </PieChart>
-                    </ResponsiveContainer>
+                  <div className="relative" style={{ width: 170, height: 170 }}>
+                    <SvgDonutChart data={PLACEMENT_DATA} size={170} innerR={50} outerR={75} id="placementDonut" />
                     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                       <span className="text-base font-bold text-white">24</span>
                       <span className="text-[9px]" style={{ color: C.textDim }}>Total Ads</span>
@@ -401,19 +583,12 @@ export default function HeroFooterAdsManager() {
               </GlassCard>
             </div>
 
-            {/* Device Distribution */}
+            {/* Device Distribution — Pure SVG Donut */}
             <GlassCard>
               <h3 className="text-sm font-semibold text-white mb-2">Device Distribution</h3>
               <div className="flex flex-col md:flex-row items-center gap-8">
-                <div className="relative flex-shrink-0">
-                  <ResponsiveContainer width={170} height={170}>
-                    <PieChart>
-                      <Pie data={DEVICE_DATA} cx="50%" cy="50%" innerRadius={50} outerRadius={75} paddingAngle={3} dataKey="value" stroke="none">
-                        {DEVICE_DATA.map((e, i) => <Cell key={i} fill={e.color} />)}
-                      </Pie>
-                      <Tooltip content={<ChartTip />} />
-                    </PieChart>
-                  </ResponsiveContainer>
+                <div className="relative flex-shrink-0" style={{ width: 170, height: 170 }}>
+                  <SvgDonutChart data={DEVICE_DATA} size={170} innerR={50} outerR={75} id="deviceDonut" />
                   <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                     <span className="text-sm font-bold text-white">2.85M</span>
                     <span className="text-[9px]" style={{ color: C.textDim }}>Impressions</span>

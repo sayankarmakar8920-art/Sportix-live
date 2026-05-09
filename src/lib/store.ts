@@ -60,6 +60,10 @@ interface AppState {
   // Admin
   isAdminUnlocked: boolean
   setAdminUnlocked: (v: boolean) => void
+  adminAuthenticated: boolean
+  setAdminAuthenticated: (v: boolean) => void
+  showAdminLogin: boolean
+  setShowAdminLogin: (v: boolean) => void
   logoClickCount: number
   incrementLogoClicks: () => void
   resetLogoClicks: () => void
@@ -117,16 +121,17 @@ export const useAppStore = create<AppState>((set) => ({
   // Admin
   isAdminUnlocked: false,
   setAdminUnlocked: (v) => set({ isAdminUnlocked: v }),
+  adminAuthenticated: false,
+  setAdminAuthenticated: (v) => set({ adminAuthenticated: v }),
+  showAdminLogin: false,
+  setShowAdminLogin: (v) => set({ showAdminLogin: v }),
   logoClickCount: 0,
   incrementLogoClicks: () =>
     set((state) => {
       const newCount = state.logoClickCount + 1
       if (newCount >= 7) {
-        // Only navigate to admin on tablet/desktop (768px+)
-        if (typeof window !== 'undefined' && window.innerWidth >= 768) {
-          return { logoClickCount: 0, isAdminUnlocked: true, currentView: 'admin' as PageView }
-        }
-        return { logoClickCount: 0, isAdminUnlocked: true }
+        // Show login dialog instead of directly entering admin
+        return { logoClickCount: 0, showAdminLogin: true }
       }
       return { logoClickCount: newCount }
     }),

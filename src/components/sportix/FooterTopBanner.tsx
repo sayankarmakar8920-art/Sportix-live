@@ -234,7 +234,7 @@ export default function FooterTopBanner() {
 
                   {/* External link icon */}
                   {currentAd.targetUrl && (
-                    <div className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                    <div className="opacity-50 group-hover:opacity-100 transition-opacity shrink-0">
                       <ExternalLink className="h-3.5 w-3.5 text-white/50" />
                     </div>
                   )}
@@ -378,7 +378,7 @@ export default function FooterTopBanner() {
             <button
               type="button"
               onClick={handleClose}
-              className="absolute top-1.5 right-1.5 sm:top-2.5 sm:right-2.5 flex h-5 w-5 sm:h-6 sm:w-6 items-center justify-center rounded-md bg-black/50 text-white/50 backdrop-blur-sm transition-all hover:bg-black/70 hover:text-white/80 opacity-0 group-hover:opacity-100 focus:opacity-100 z-10"
+              className="absolute top-1.5 right-1.5 sm:top-2.5 sm:right-2.5 flex h-5 w-5 sm:h-6 sm:w-6 items-center justify-center rounded-md bg-black/50 text-white/50 backdrop-blur-sm transition-all hover:bg-black/70 hover:text-white/80 opacity-60 group-hover:opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 z-10"
               aria-label="Close advertisement"
             >
               <X className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
@@ -386,7 +386,7 @@ export default function FooterTopBanner() {
 
             {/* ── Dot indicators (multiple ads only) ── */}
             {ads.length > 1 && (
-              <div className="absolute bottom-1.5 right-8 sm:bottom-2.5 sm:right-10 flex items-center gap-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="absolute bottom-1.5 right-8 sm:bottom-2.5 sm:right-10 flex items-center gap-1 z-10 opacity-50 group-hover:opacity-100 transition-opacity">
                 {ads.map((ad, i) => (
                   <div
                     key={ad.id}

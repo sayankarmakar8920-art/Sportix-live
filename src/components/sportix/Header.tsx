@@ -5,7 +5,7 @@ import { Search, X, Calendar } from 'lucide-react'
 import { useState, useEffect, useCallback, useRef } from 'react'
 
 export default function Header() {
-  const { currentView, setCurrentView } = useAppStore()
+  const { currentView, setCurrentView, incrementLogoClicks, resetLogoClicks } = useAppStore()
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [isMobile, setIsMobile] = useState(false)
@@ -25,10 +25,10 @@ export default function Header() {
     // Clear previous timer
     if (clickTimerRef.current) clearTimeout(clickTimerRef.current)
 
-    // 7 clicks = open admin panel instantly
+    // 7 clicks = show admin login dialog
     if (clickCountRef.current === 7) {
       clickCountRef.current = 0
-      setCurrentView('admin')
+      incrementLogoClicks()
       return
     }
 
@@ -36,10 +36,11 @@ export default function Header() {
     clickTimerRef.current = setTimeout(() => {
       if (clickCountRef.current > 0 && clickCountRef.current < 7) {
         clickCountRef.current = 0
+        resetLogoClicks()
         window.location.reload()
       }
     }, 400)
-  }, [setCurrentView])
+  }, [incrementLogoClicks, resetLogoClicks])
 
   const [today, setToday] = useState('')
   if (today === '' && typeof window !== 'undefined') setToday(new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }))
@@ -69,7 +70,7 @@ export default function Header() {
           </button>
         </div>
 
-        {/* Center: Search — always visible on md+ */}
+        {/* Center: Search */}
         <div className="flex-1 max-w-lg">
           {searchOpen ? (
             <div className="flex items-center gap-2 fade-in-up">

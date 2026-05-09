@@ -17,6 +17,7 @@ import {
   Radio, Trophy, Calendar, Award, Heart, ListVideo, Settings,
   Eye, Users, Zap, Globe, Bell, Monitor, Moon, Sun,
   ChevronRight, Wifi, Volume2, Shield, Sparkles, MonitorX,
+  Lock, EyeOff, AlertCircle,
   Film, RotateCcw
 } from 'lucide-react'
 
@@ -718,6 +719,131 @@ function AdminLoadingFallback() {
   )
 }
 
+/* ──────────────────────── Admin Login Dialog ──────────────────────── */
+
+function AdminLoginDialog() {
+  const { showAdminLogin, setShowAdminLogin, setCurrentView, setAdminAuthenticated } = useAppStore()
+  const [adminId, setAdminId] = useState('')
+  const [password, setPassword] = useState('')
+  const [showPass, setShowPass] = useState(false)
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (showAdminLogin) {
+      setTimeout(() => inputRef.current?.focus(), 100)
+    }
+  }, [showAdminLogin])
+
+  const handleLogin = async () => {
+    setError('')
+    if (!adminId.trim()) { setError('Admin ID is required'); return }
+    if (!password.trim()) { setError('Password is required'); return }
+    setLoading(true)
+    // Simulate auth check
+    await new Promise(r => setTimeout(r, 600))
+    // Default credentials: admin / admin123
+    if (adminId.trim() === 'admin' && password.trim() === 'admin123') {
+      setAdminAuthenticated(true)
+      setShowAdminLogin(false)
+      setCurrentView('admin')
+      setAdminId('')
+      setPassword('')
+    } else {
+      setError('Invalid Admin ID or Password')
+    }
+    setLoading(false)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') handleLogin()
+  }
+
+  if (!showAdminLogin) return null
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" onClick={() => setShowAdminLogin(false)}>
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+      <div className="relative w-full max-w-sm rounded-2xl border border-white/10 p-6 shadow-2xl fade-in-up" style={{ background: '#181818' }} onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div className="flex flex-col items-center text-center mb-6">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#E50914]/10 mb-3">
+            <Lock className="h-7 w-7 text-[#E50914]" />
+          </div>
+          <h2 className="text-lg font-bold text-white">Admin Access</h2>
+          <p className="text-xs text-white/40 mt-1">Enter your admin credentials to continue</p>
+        </div>
+
+        {/* Error */}
+        {error && (
+          <div className="flex items-center gap-2 rounded-xl bg-red-500/10 border border-red-500/20 px-3 py-2.5 mb-4">
+            <AlertCircle className="h-4 w-4 text-red-400 flex-shrink-0" />
+            <p className="text-xs text-red-400">{error}</p>
+          </div>
+        )}
+
+        {/* Form */}
+        <div className="space-y-3">
+          <div>
+            <label className="text-[11px] font-semibold uppercase tracking-wider text-white/40 block mb-1.5">Admin ID</label>
+            <input
+              ref={inputRef}
+              type="text"
+              value={adminId}
+              onChange={e => { setAdminId(e.target.value); setError('') }}
+              onKeyDown={handleKeyDown}
+              placeholder="Enter Admin ID"
+              className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm text-white placeholder:text-white/20 focus:border-[#E50914]/40 focus:outline-none focus:ring-1 focus:ring-[#E50914]/20 transition-all"
+              autoComplete="off"
+            />
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold uppercase tracking-wider text-white/40 block mb-1.5">Password</label>
+            <div className="relative">
+              <input
+                type={showPass ? 'text' : 'password'}
+                value={password}
+                onChange={e => { setPassword(e.target.value); setError('') }}
+                onKeyDown={handleKeyDown}
+                placeholder="Enter Password"
+                className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 pr-10 text-sm text-white placeholder:text-white/20 focus:border-[#E50914]/40 focus:outline-none focus:ring-1 focus:ring-[#E50914]/20 transition-all"
+                autoComplete="off"
+              />
+              <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors">
+                {showPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+
+          <button
+            onClick={handleLogin}
+            disabled={loading}
+            className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#E50914] px-4 py-3 text-sm font-bold text-white transition-all hover:bg-[#c40812] active:scale-[0.98] disabled:opacity-50 mt-2"
+            style={{ boxShadow: '0 4px 20px rgba(229,9,20,0.3)' }}
+          >
+            {loading ? (
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/20 border-t-white" />
+            ) : (
+              <>
+                <Shield className="h-4 w-4" />
+                Access Admin Panel
+              </>
+            )}
+          </button>
+
+          <button
+            onClick={() => { setShowAdminLogin(false); setAdminId(''); setPassword(''); setError('') }}
+            className="w-full text-center text-xs text-white/30 hover:text-white/50 transition-colors py-1"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /* ═══════════════════════════════════════════════════════════════════
    ║                        MAIN PAGE                               ║
    ═══════════════════════════════════════════════════════════════════ */
@@ -1095,6 +1221,7 @@ export default function Home() {
         </footer>
 
         <BottomNav />
+        <AdminLoginDialog />
       </div>
       </ErrorBoundary>
   )

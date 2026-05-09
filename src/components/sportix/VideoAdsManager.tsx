@@ -3,16 +3,11 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 
 import {
-  AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis,
-  CartesianGrid, Tooltip, ResponsiveContainer, Legend
-} from 'recharts'
-import {
-  LayoutDashboard, Eye, MousePointerClick, DollarSign, TrendingUp, Target,
-  Download, Upload, CloudUpload, Pause, X, Play, Search, Filter,
+  LayoutDashboard, Eye, MousePointerClick, DollarSign, Target,
+  Download, Upload, CloudUpload, Pause, X, Play, Search,
   ChevronDown, ChevronLeft, ChevronRight, Calendar, Plus, FileVideo,
-  Image, Edit3, Trash2, MoreHorizontal, Info, Zap, Clock, Film,
-  BarChart3, RefreshCw, ArrowUpRight, ArrowDownRight, Monitor,
-  Smartphone, Tablet, Settings, Check, XCircle, GripVertical, SkipForward, List,
+  Image, Edit3, Trash2, Info, Clock, Film,
+  BarChart3, ArrowUpRight, Settings, Check, SkipForward, List,
 } from 'lucide-react'
 
 /* ═══════════════════════════════════════════════════════════════
@@ -74,6 +69,7 @@ interface UploadEntry {
   speed: number
   error?: string
   startTime: number
+  xhr?: XMLHttpRequest | null
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -140,6 +136,17 @@ function fmtTime(sec: number): string {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
+const MAX_FILE_SIZE = 5 * 1024 * 1024 * 1024 // 5GB
+
+const ALLOWED_VIDEO_EXTENSIONS = ['mp4', 'webm', 'mov', 'avi', 'mkv']
+const ALLOWED_IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'gif']
+const ALL_ALLOWED_EXTENSIONS = [...ALLOWED_VIDEO_EXTENSIONS, ...ALLOWED_IMAGE_EXTENSIONS]
+
+function getFileExt(filename: string): string {
+  const parts = filename.split('.')
+  return parts.length > 1 ? parts.pop()!.toLowerCase() : ''
+}
+
 let _uid = 0
 const uid = () => `u${++_uid}_${Date.now()}`
 
@@ -149,7 +156,6 @@ const uid = () => `u${++_uid}_${Date.now()}`
 function AnimatedCounter({ value, prefix = '', suffix = '' }: { value: number; prefix?: string; suffix?: string }) {
   const [display, setDisplay] = useState(0)
   useEffect(() => {
-    let start = 0
     const dur = 1200
     const t0 = performance.now()
     const step = (now: number) => {
@@ -190,18 +196,381 @@ function GlassCard({ children, className = '', style }: { children: React.ReactN
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   CUSTOM TOOLTIP
+   PURE SVG AREA CHART
    ═══════════════════════════════════════════════════════════════ */
-function ChartTooltip({ active, payload, label }: any) {
-  if (!active || !payload?.length) return null
+function SvgAreaChart({ data, seriesKeys, seriesColors, seriesNames, height = 192 }: {
+  data: { date: string; [k: string]: string | number }[]
+  seriesKeys: string[]
+  seriesColors: string[]
+  seriesNames: string[]
+  height?: number
+}) {
+  const svgRef = useRef<SVGSVGElement>(null)
+  const [tooltip, setTooltip] = useState<{ x: number; y: number; items: { name: string; value: number; color: string }[]; label: string } | null>(null)
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null)
+
+  const W = 700
+  const H = height
+  const PAD_L = 5
+  const PAD_R = 15
+  const PAD_T = 8
+  const PAD_B = 28
+  const chartW = W - PAD_L - PAD_R
+  const chartH = H - PAD_T - PAD_B
+
+  // Compute max value across all series for shared Y axis
+  const allValues = data.flatMap(d => seriesKeys.map(k => Number(d[k] || 0)))
+  const maxVal = Math.max(...allValues, 1)
+
+  const xStep = chartW / (data.length - 1)
+
+  const buildPathAndArea = (key: string) => {
+    const points = data.map((d, i) => ({
+      x: PAD_L + i * xStep,
+      y: PAD_T + chartH - (Number(d[key] || 0) / maxVal) * chartH,
+    }))
+    const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ')
+    const areaPath = linePath + ` L${points[points.length - 1].x},${PAD_T + chartH} L${PAD_L},${PAD_T + chartH} Z`
+    return { linePath, areaPath, points }
+  }
+
+  // Y-axis tick values
+  const yTicks = 4
+  const yTickValues = Array.from({ length: yTicks + 1 }, (_, i) => Math.round((maxVal / yTicks) * i))
+
+  const handleMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+    const svg = svgRef.current
+    if (!svg) return
+    const rect = svg.getBoundingClientRect()
+    const mx = ((e.clientX - rect.left) / rect.width) * W
+    const idx = Math.round((mx - PAD_L) / xStep)
+    if (idx < 0 || idx >= data.length) { setTooltip(null); setHoveredIdx(null); return }
+    const items = seriesKeys.map((k, i) => ({
+      name: seriesNames[i],
+      value: Number(data[idx][k] || 0),
+      color: seriesColors[i],
+    }))
+    const px = ((PAD_L + idx * xStep) / W) * 100
+    const py = ((PAD_T + chartH * 0.2) / H) * 100
+    setTooltip({ x: px, y: py, items, label: data[idx].date })
+    setHoveredIdx(idx)
+  }, [data, seriesKeys, seriesNames, seriesColors, xStep, W, H, PAD_L, PAD_T, chartH])
+
+  const handleMouseLeave = useCallback(() => {
+    setTooltip(null)
+    setHoveredIdx(null)
+  }, [])
+
   return (
-    <div className="rounded-xl px-3 py-2 text-xs" style={{ background: 'rgba(0,0,0,0.85)', border: '1px solid rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)' }}>
-      <p className="text-white/60 mb-1">{label}</p>
-      {payload.map((p: any, i: number) => (
-        <p key={i} style={{ color: p.color }} className="font-medium">
-          {p.name}: {typeof p.value === 'number' && p.name === 'Revenue' ? `$${p.value.toLocaleString()}` : fmtNum(p.value)}
-        </p>
-      ))}
+    <div style={{ width: '100%', height, position: 'relative' }}>
+      <svg
+        ref={svgRef}
+        viewBox={`0 0 ${W} ${H}`}
+        preserveAspectRatio="none"
+        style={{ width: '100%', height: '100%', display: 'block' }}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+      >
+        <defs>
+          {seriesKeys.map((_, i) => (
+            <linearGradient key={i} id={`svgGrad${i}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={seriesColors[i]} stopOpacity={0.3} />
+              <stop offset="100%" stopColor={seriesColors[i]} stopOpacity={0} />
+            </linearGradient>
+          ))}
+        </defs>
+
+        {/* Grid lines */}
+        {Array.from({ length: yTicks + 1 }, (_, i) => {
+          const y = PAD_T + (chartH / yTicks) * i
+          return <line key={i} x1={PAD_L} y1={y} x2={W - PAD_R} y2={y} stroke="rgba(255,255,255,0.04)" strokeDasharray="3 3" />
+        })}
+
+        {/* Y-axis labels */}
+        {yTickValues.map((v, i) => (
+          <text key={i} x={PAD_L - 2} y={PAD_T + (chartH / yTicks) * i + 3} fill="#52525b" fontSize="9" textAnchor="end" fontFamily="system-ui">{fmtNum(v)}</text>
+        ))}
+
+        {/* X-axis labels (every 5th) */}
+        {data.filter((_, i) => i % 5 === 0 || i === data.length - 1).map((d, _, arr) => {
+          const origIdx = data.indexOf(d)
+          return (
+            <text key={origIdx} x={PAD_L + origIdx * xStep} y={H - 6} fill="#52525b" fontSize="9" textAnchor="middle" fontFamily="system-ui">{d.date}</text>
+          )
+        })}
+
+        {/* Areas and lines */}
+        {seriesKeys.map((key, i) => {
+          const { linePath, areaPath } = buildPathAndArea(key)
+          return (
+            <g key={key}>
+              <path d={areaPath} fill={`url(#svgGrad${i})`} />
+              <path d={linePath} fill="none" stroke={seriesColors[i]} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+            </g>
+          )
+        })}
+
+        {/* Hover vertical line + dots */}
+        {hoveredIdx !== null && (
+          <>
+            <line x1={PAD_L + hoveredIdx * xStep} y1={PAD_T} x2={PAD_L + hoveredIdx * xStep} y2={PAD_T + chartH} stroke="rgba(255,255,255,0.15)" strokeWidth={1} strokeDasharray="4 2" />
+            {seriesKeys.map((key, i) => {
+              const y = PAD_T + chartH - (Number(data[hoveredIdx][key] || 0) / maxVal) * chartH
+              return <circle key={key} cx={PAD_L + hoveredIdx * xStep} cy={y} r={4} fill={seriesColors[i]} stroke="#0a0a0a" strokeWidth={2} />
+            })}
+          </>
+        )}
+      </svg>
+
+      {/* Tooltip */}
+      {tooltip && (
+        <div
+          className="rounded-xl px-3 py-2 text-xs pointer-events-none"
+          style={{
+            position: 'absolute',
+            left: `${Math.min(tooltip.x, 75)}%`,
+            top: `${tooltip.y}%`,
+            transform: 'translate(-50%, -100%)',
+            background: 'rgba(0,0,0,0.9)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            backdropFilter: 'blur(10px)',
+            zIndex: 20,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          <p style={{ color: 'rgba(255,255,255,0.6)' }} className="mb-1">{tooltip.label}</p>
+          {tooltip.items.map((item, i) => (
+            <p key={i} style={{ color: item.color }} className="font-medium">
+              {item.name}: {item.name === 'Revenue' ? fmtCurrency(item.value) : fmtNum(item.value)}
+            </p>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PURE SVG BAR CHART
+   ═══════════════════════════════════════════════════════════════ */
+function SvgBarChart({ data, dataKey, nameKey, colorKey }: {
+  data: { name: string; count: number; color: string }[]
+  dataKey: string
+  nameKey: string
+  colorKey: string
+}) {
+  const svgRef = useRef<SVGSVGElement>(null)
+  const [tooltip, setTooltip] = useState<{ x: number; y: number; name: string; value: number; color: string } | null>(null)
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null)
+
+  const W = 700
+  const H = 224
+  const PAD_L = 5
+  const PAD_R = 15
+  const PAD_T = 8
+  const PAD_B = 32
+  const chartW = W - PAD_L - PAD_R
+  const chartH = H - PAD_T - PAD_B
+
+  const maxVal = Math.max(...data.map(d => d.count), 1)
+  const barGroupW = chartW / data.length
+  const barW = barGroupW * 0.6
+  const barGap = (barGroupW - barW) / 2
+
+  const yTicks = 4
+  const yTickValues = Array.from({ length: yTicks + 1 }, (_, i) => Math.round((maxVal / yTicks) * i))
+
+  const handleBarHover = useCallback((idx: number, e: React.MouseEvent) => {
+    const svg = svgRef.current
+    if (!svg) return
+    const rect = svg.getBoundingClientRect()
+    const mx = ((e.clientX - rect.left) / rect.width) * W
+    setTooltip({
+      x: (mx / W) * 100,
+      y: ((PAD_T + chartH - (data[idx].count / maxVal) * chartH) / H) * 100,
+      name: data[idx].name,
+      value: data[idx].count,
+      color: data[idx].color,
+    })
+    setHoveredIdx(idx)
+  }, [data, maxVal, W, H, PAD_T, chartH])
+
+  const handleMouseLeave = useCallback(() => {
+    setTooltip(null)
+    setHoveredIdx(null)
+  }, [])
+
+  return (
+    <div style={{ width: '100%', height: H, position: 'relative' }}>
+      <svg
+        ref={svgRef}
+        viewBox={`0 0 ${W} ${H}`}
+        preserveAspectRatio="none"
+        style={{ width: '100%', height: '100%', display: 'block' }}
+        onMouseLeave={handleMouseLeave}
+      >
+        {/* Grid lines */}
+        {Array.from({ length: yTicks + 1 }, (_, i) => {
+          const y = PAD_T + (chartH / yTicks) * i
+          return <line key={i} x1={PAD_L} y1={y} x2={W - PAD_R} y2={y} stroke="rgba(255,255,255,0.04)" strokeDasharray="3 3" />
+        })}
+
+        {/* Y-axis labels */}
+        {yTickValues.map((v, i) => (
+          <text key={i} x={PAD_L - 2} y={PAD_T + (chartH / yTicks) * i + 3} fill="#52525b" fontSize="9" textAnchor="end" fontFamily="system-ui">{v}</text>
+        ))}
+
+        {/* Bars */}
+        {data.map((d, i) => {
+          const barH = (d.count / maxVal) * chartH
+          const x = PAD_L + i * barGroupW + barGap
+          const y = PAD_T + chartH - barH
+          return (
+            <g key={d.name} onMouseMove={(e) => handleBarHover(i, e)}>
+              <rect
+                x={x}
+                y={y}
+                width={barW}
+                height={barH}
+                rx={6}
+                ry={6}
+                fill={d.color}
+                opacity={hoveredIdx !== null && hoveredIdx !== i ? 0.5 : 1}
+                style={{ transition: 'opacity 0.15s', cursor: 'pointer' }}
+              />
+              {/* Value on top of bar */}
+              <text x={x + barW / 2} y={y - 6} fill={d.color} fontSize="9" textAnchor="middle" fontFamily="system-ui" fontWeight="600">{d.count}</text>
+            </g>
+          )
+        })}
+
+        {/* X-axis labels */}
+        {data.map((d, i) => (
+          <text key={d.name} x={PAD_L + i * barGroupW + barGroupW / 2} y={H - 8} fill="#52525b" fontSize="9" textAnchor="middle" fontFamily="system-ui">{d.name}</text>
+        ))}
+      </svg>
+
+      {/* Tooltip */}
+      {tooltip && (
+        <div
+          className="rounded-xl px-3 py-2 text-xs pointer-events-none"
+          style={{
+            position: 'absolute',
+            left: `${tooltip.x}%`,
+            top: `${tooltip.y}%`,
+            transform: 'translate(-50%, -100%)',
+            background: 'rgba(0,0,0,0.9)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            backdropFilter: 'blur(10px)',
+            zIndex: 20,
+          }}
+        >
+          <p style={{ color: 'rgba(255,255,255,0.6)' }} className="mb-0.5">{tooltip.name}</p>
+          <p style={{ color: tooltip.color }} className="font-medium">Count: {tooltip.value}</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PURE SVG DONUT CHART
+   ═══════════════════════════════════════════════════════════════ */
+function SvgDonutChart({ data, size = 180, innerR = 55, outerR = 80 }: {
+  data: { name: string; value: number; color: string }[]
+  size?: number
+  innerR?: number
+  outerR?: number
+}) {
+  const [tooltip, setTooltip] = useState<{ x: number; y: number; name: string; value: number; color: string; pct: number } | null>(null)
+  const total = data.reduce((s, d) => s + d.value, 0)
+  const cx = size / 2
+  const cy = size / 2
+  const midR = (innerR + outerR) / 2
+
+  // Build arcs using SVG circle stroke-dasharray trick
+  const circumference = 2 * Math.PI * midR
+
+  const segments = data.reduce<Array<typeof data[0] & { pct: number; dashArray: string; dashOffset: number; startAngle: number }>>((acc, d) => {
+    const pct = d.value / total
+    const prevOffset = acc.length > 0 ? acc[acc.length - 1].dashOffset + (acc[acc.length - 1].pct * circumference) : 0
+    const dashLength = pct * circumference
+    const gap = circumference - dashLength
+    return [...acc, {
+      ...d,
+      pct,
+      dashArray: `${dashLength} ${gap}`,
+      dashOffset: -prevOffset,
+      startAngle: (prevOffset / circumference) * 360,
+    }]
+  }, [])
+
+  const handleSegmentHover = useCallback((seg: typeof segments[0], e: React.MouseEvent) => {
+    setTooltip({
+      x: 50,
+      y: 15,
+      name: seg.name,
+      value: seg.value,
+      color: seg.color,
+      pct: seg.pct,
+    })
+  }, [])
+
+  const handleMouseLeave = useCallback(() => {
+    setTooltip(null)
+  }, [])
+
+  return (
+    <div style={{ width: size, height: size, position: 'relative' }}>
+      <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size}>
+        {segments.map((seg, i) => (
+          <circle
+            key={seg.name}
+            cx={cx}
+            cy={cy}
+            r={midR}
+            fill="none"
+            stroke={seg.color}
+            strokeWidth={outerR - innerR}
+            strokeDasharray={seg.dashArray}
+            strokeDashoffset={seg.dashOffset}
+            strokeLinecap="butt"
+            transform={`rotate(-90 ${cx} ${cy})`}
+            style={{ cursor: 'pointer', transition: 'opacity 0.15s' }}
+            onMouseEnter={(e) => handleSegmentHover(seg, e)}
+            onMouseMove={(e) => handleSegmentHover(seg, e)}
+            onMouseLeave={handleMouseLeave}
+          />
+        ))}
+      </svg>
+
+      {/* Center label */}
+      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+        <span className="text-lg font-bold text-white">{total}</span>
+        <span className="text-[9px]" style={{ color: C.textDim }}>Total Ads</span>
+      </div>
+
+      {/* Tooltip */}
+      {tooltip && (
+        <div
+          className="rounded-xl px-3 py-2 text-xs pointer-events-none"
+          style={{
+            position: 'absolute',
+            left: `${tooltip.x}%`,
+            top: `${tooltip.y}%`,
+            transform: 'translate(-50%, -100%)',
+            background: 'rgba(0,0,0,0.9)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            backdropFilter: 'blur(10px)',
+            zIndex: 20,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          <p style={{ color: tooltip.color }} className="font-medium">
+            {tooltip.name}: {tooltip.value} ({(tooltip.pct * 100).toFixed(1)}%)
+          </p>
+        </div>
+      )}
     </div>
   )
 }
@@ -229,49 +598,163 @@ export default function VideoAdsManager() {
   const [currentPage, setCurrentPage] = useState(1)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const dragRef = useRef<HTMLDivElement>(null)
+  const xhrRefs = useRef<Map<string, XMLHttpRequest>>(new Map())
 
   const perPage = 8
 
-  /* Simulated upload */
-  const simulateUpload = useCallback((file: File) => {
+  /* ═══════ REAL UPLOAD via XMLHttpRequest ═══════ */
+  const realUpload = useCallback((file: File) => {
+    const entryId = uid()
+
+    // Validate file extension
+    const ext = getFileExt(file.name)
+    const isVideo = uploadTab === 'video'
+    const allowedExts = isVideo ? ALLOWED_VIDEO_EXTENSIONS : ALLOWED_IMAGE_EXTENSIONS
+
+    if (!allowedExts.includes(ext)) {
+      const entry: UploadEntry = {
+        id: entryId, file, status: 'error', progress: 0,
+        uploadedBytes: 0, totalBytes: file.size, speed: 0,
+        error: `Unsupported file type: .${ext}. Allowed: ${allowedExts.join(', ')}`,
+        startTime: Date.now(),
+      }
+      setUploads(prev => [entry, ...prev])
+      return
+    }
+
+    // Validate file size (5GB)
+    if (file.size > MAX_FILE_SIZE) {
+      const entry: UploadEntry = {
+        id: entryId, file, status: 'error', progress: 0,
+        uploadedBytes: 0, totalBytes: file.size, speed: 0,
+        error: `File too large (${fmtBytes(file.size)}). Max: 5GB`,
+        startTime: Date.now(),
+      }
+      setUploads(prev => [entry, ...prev])
+      return
+    }
+
+    if (file.size === 0) {
+      const entry: UploadEntry = {
+        id: entryId, file, status: 'error', progress: 0,
+        uploadedBytes: 0, totalBytes: 0, speed: 0,
+        error: 'File is empty (0 bytes)',
+        startTime: Date.now(),
+      }
+      setUploads(prev => [entry, ...prev])
+      return
+    }
+
     const entry: UploadEntry = {
-      id: uid(), file, status: 'uploading', progress: 0,
-      uploadedBytes: 0, totalBytes: file.size, speed: 0, startTime: Date.now(),
+      id: entryId, file, status: 'uploading', progress: 0,
+      uploadedBytes: 0, totalBytes: file.size, speed: 0,
+      startTime: Date.now(),
     }
     setUploads(prev => [entry, ...prev])
-    const interval = setInterval(() => {
-      setUploads(prev => prev.map(u => {
-        if (u.id !== entry.id) return u
-        const newProg = Math.min(u.progress + Math.random() * 3 + 1, 100)
-        const elapsed = (Date.now() - u.startTime) / 1000
-        const speed = elapsed > 0 ? (newProg / 100) * file.size / elapsed : 0
-        return {
-          ...u,
-          progress: newProg,
-          uploadedBytes: (newProg / 100) * file.size,
-          speed,
-          status: newProg >= 100 ? 'complete' as const : u.status,
-        }
-      }))
-      setUploads(prev => {
-        const done = prev.find(u => u.id === entry.id)
-        if (done && done.progress >= 100) clearInterval(interval)
-        return prev
-      })
-    }, 200)
+
+    const xhr = new XMLHttpRequest()
+    xhrRefs.current.set(entryId, xhr)
+
+    const formData = new FormData()
+    formData.append('file', file)
+
+    xhr.upload.addEventListener('progress', (e) => {
+      if (e.lengthComputable) {
+        const progress = (e.loaded / e.total) * 100
+        const elapsed = (Date.now() - entry.startTime) / 1000
+        const speed = elapsed > 0 ? e.loaded / elapsed : 0
+        setUploads(prev => prev.map(u =>
+          u.id === entryId
+            ? { ...u, progress, uploadedBytes: e.loaded, speed }
+            : u
+        ))
+      }
+    })
+
+    xhr.addEventListener('load', () => {
+      xhrRefs.current.delete(entryId)
+      if (xhr.status >= 200 && xhr.status < 300) {
+        let responseMsg = 'Upload complete'
+        try {
+          const res = JSON.parse(xhr.responseText)
+          if (res.success) {
+            responseMsg = res.message || 'Upload complete'
+          } else {
+            setUploads(prev => prev.map(u =>
+              u.id === entryId
+                ? { ...u, status: 'error', error: res.error || 'Upload failed' }
+                : u
+            ))
+            return
+          }
+        } catch { /* ignore parse error */ }
+        setUploads(prev => prev.map(u =>
+          u.id === entryId
+            ? { ...u, status: 'complete', progress: 100, uploadedBytes: u.totalBytes }
+            : u
+        ))
+      } else {
+        let errorMsg = `Upload failed (HTTP ${xhr.status})`
+        try {
+          const res = JSON.parse(xhr.responseText)
+          errorMsg = res.error || errorMsg
+        } catch { /* ignore */ }
+        setUploads(prev => prev.map(u =>
+          u.id === entryId
+            ? { ...u, status: 'error', error: errorMsg }
+            : u
+        ))
+      }
+    })
+
+    xhr.addEventListener('error', () => {
+      xhrRefs.current.delete(entryId)
+      setUploads(prev => prev.map(u =>
+        u.id === entryId
+          ? { ...u, status: 'error', error: 'Network error. Please try again.' }
+          : u
+      ))
+    })
+
+    xhr.addEventListener('abort', () => {
+      xhrRefs.current.delete(entryId)
+      setUploads(prev => prev.map(u =>
+        u.id === entryId
+          ? { ...u, status: 'cancelled' }
+          : u
+      ))
+    })
+
+    xhr.open('POST', '/api/upload')
+    xhr.send(formData)
+  }, [uploadTab])
+
+  const pauseUpload = useCallback((entryId: string) => {
+    const xhr = xhrRefs.current.get(entryId)
+    if (xhr) {
+      xhr.abort()
+    }
+  }, [])
+
+  const cancelUpload = useCallback((entryId: string) => {
+    const xhr = xhrRefs.current.get(entryId)
+    if (xhr) {
+      xhr.abort()
+    }
+    setUploads(prev => prev.filter(u => u.id !== entryId))
   }, [])
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
     const files = Array.from(e.dataTransfer.files)
-    files.forEach(simulateUpload)
-  }, [simulateUpload])
+    files.forEach(realUpload)
+  }, [realUpload])
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
-    files.forEach(simulateUpload)
+    files.forEach(realUpload)
     e.target.value = ''
-  }, [simulateUpload])
+  }, [realUpload])
 
   /* Filtered ads */
   const filteredAds = useMemo(() => {
@@ -349,7 +832,7 @@ export default function VideoAdsManager() {
           KPI CARDS
           ════════════════════════════════════════ */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
-        {kpis.map((kpi, i) => {
+        {kpis.map((kpi) => {
           const Icon = kpi.icon
           return (
             <div
@@ -360,7 +843,6 @@ export default function VideoAdsManager() {
                 border: '1px solid rgba(255,255,255,0.06)',
               }}
             >
-              {/* Subtle glow */}
               <div className="absolute top-0 right-0 w-20 h-20 rounded-full opacity-20 blur-2xl" style={{ background: kpi.color }} />
               <div className="flex items-center justify-between mb-3">
                 <div className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ background: kpi.bg }}>
@@ -413,7 +895,7 @@ export default function VideoAdsManager() {
           <div className="space-y-4 transition-all duration-200">
             {/* Performance Chart + Ad Format Distribution */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 md:gap-4">
-              {/* Performance Line Chart */}
+              {/* Performance Line Chart (Pure SVG) */}
               <GlassCard className="lg:col-span-2" style={{ padding: 0 }}>
                 <div className="flex items-center justify-between px-3 pt-3 pb-2">
                   <div className="flex items-center gap-2">
@@ -424,32 +906,14 @@ export default function VideoAdsManager() {
                     Last 30 Days <ChevronDown className="h-3 w-3" />
                   </button>
                 </div>
-                <div className="px-3 pb-4 h-48">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={PERFORMANCE_DATA} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="gImp" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.3} />
-                          <stop offset="100%" stopColor="#3b82f6" stopOpacity={0} />
-                        </linearGradient>
-                        <linearGradient id="gClick" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#22c55e" stopOpacity={0.3} />
-                          <stop offset="100%" stopColor="#22c55e" stopOpacity={0} />
-                        </linearGradient>
-                        <linearGradient id="gRev" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#eab308" stopOpacity={0.3} />
-                          <stop offset="100%" stopColor="#eab308" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
-                      <XAxis dataKey="date" tick={{ fill: '#52525b', fontSize: 10 }} axisLine={false} tickLine={false} />
-                      <YAxis tick={{ fill: '#52525b', fontSize: 10 }} axisLine={false} tickLine={false} />
-                      <Tooltip content={<ChartTooltip />} />
-                      <Area type="monotone" dataKey="impressions" stroke="#3b82f6" fill="url(#gImp)" strokeWidth={2} name="Impressions" />
-                      <Area type="monotone" dataKey="clicks" stroke="#22c55e" fill="url(#gClick)" strokeWidth={2} name="Clicks" />
-                      <Area type="monotone" dataKey="revenue" stroke="#eab308" fill="url(#gRev)" strokeWidth={2} name="Revenue" />
-                    </AreaChart>
-                  </ResponsiveContainer>
+                <div className="px-3 pb-4">
+                  <SvgAreaChart
+                    data={PERFORMANCE_DATA}
+                    seriesKeys={['impressions', 'clicks', 'revenue']}
+                    seriesColors={['#3b82f6', '#22c55e', '#eab308']}
+                    seriesNames={['Impressions', 'Clicks', 'Revenue']}
+                    height={192}
+                  />
                 </div>
                 {/* Legend */}
                 <div className="flex items-center justify-center gap-5 pb-4">
@@ -462,35 +926,11 @@ export default function VideoAdsManager() {
                 </div>
               </GlassCard>
 
-              {/* Ad Format Distribution (Pie) */}
+              {/* Ad Format Distribution (Pure SVG Donut) */}
               <GlassCard>
                 <h3 className="text-sm font-semibold text-white mb-2">Ad Format Distribution</h3>
                 <div className="flex justify-center">
-                  <div className="relative">
-                    <ResponsiveContainer width={180} height={180}>
-                      <PieChart>
-                        <Pie
-                          data={AD_FORMAT_DATA}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={55}
-                          outerRadius={80}
-                          paddingAngle={3}
-                          dataKey="value"
-                          stroke="none"
-                        >
-                          {AD_FORMAT_DATA.map((entry, i) => (
-                            <Cell key={i} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <Tooltip content={<ChartTooltip />} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                      <span className="text-lg font-bold text-white">128</span>
-                      <span className="text-[9px]" style={{ color: C.textDim }}>Total Ads</span>
-                    </div>
-                  </div>
+                  <SvgDonutChart data={AD_FORMAT_DATA} size={180} innerR={55} outerR={80} />
                 </div>
                 <div className="space-y-2.5 mt-4">
                   {AD_FORMAT_DATA.map(d => (
@@ -506,30 +946,21 @@ export default function VideoAdsManager() {
               </GlassCard>
             </div>
 
-            {/* Ad Type Distribution (Bar Chart) */}
+            {/* Ad Type Distribution (Pure SVG Bar Chart) */}
             <GlassCard>
               <h3 className="text-sm font-semibold text-white mb-2">Ad Type Distribution</h3>
-              <div className="h-56">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={AD_TYPE_DATA} margin={{ top: 0, right: 10, left: -10, bottom: 0 }} barCategoryGap="25%">
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
-                    <XAxis dataKey="name" tick={{ fill: '#52525b', fontSize: 10 }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fill: '#52525b', fontSize: 10 }} axisLine={false} tickLine={false} />
-                    <Tooltip content={<ChartTooltip />} />
-                    <Bar dataKey="count" radius={[6, 6, 0, 0]} name="Count">
-                      {AD_TYPE_DATA.map((entry, i) => (
-                        <Cell key={i} fill={entry.color} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+              <SvgBarChart
+                data={AD_TYPE_DATA}
+                dataKey="count"
+                nameKey="name"
+                colorKey="color"
+              />
             </GlassCard>
           </div>
       )}
 
       {/* ════════════════════════════════════════════════════
-          UPLOAD TAB
+          UPLOAD TAB (REAL UPLOAD)
           ════════════════════════════════════════════════════ */}
       {activeTab === 'upload' && (
           <div className="space-y-4 transition-all duration-200">
@@ -582,9 +1013,19 @@ export default function VideoAdsManager() {
                   <Upload className="h-3.5 w-3.5" /> Choose File
                 </button>
                 <p className="text-[10px]" style={{ color: C.textDim }}>
-                  Max file size: 5GB &nbsp;|&nbsp; Supported: {uploadTab === 'video' ? 'MP4, MOV, WebM, HLS' : 'JPG, PNG, WebP, GIF'}
+                  Max file size: 5GB &nbsp;|&nbsp; Supported: {uploadTab === 'video' ? 'MP4, WebM, MOV, AVI, MKV' : 'JPG, PNG, WebP, GIF'}
                 </p>
-                <input ref={fileInputRef} type="file" className="hidden" accept={uploadTab === 'video' ? 'video/*' : 'image/*'} onChange={handleFileSelect} multiple />
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  accept={uploadTab === 'video'
+                    ? '.mp4,.webm,.mov,.avi,.mkv,video/mp4,video/webm,video/quicktime,video/x-msvideo,video/x-matroska'
+                    : '.jpg,.jpeg,.png,.webp,.gif,image/jpeg,image/png,image/webp,image/gif'
+                  }
+                  onChange={handleFileSelect}
+                  multiple
+                />
               </div>
 
               {/* Quality Selection */}
@@ -636,14 +1077,17 @@ export default function VideoAdsManager() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
-                          {u.status === 'complete' && <span className="text-[10px] font-semibold" style={{ color: C.success }}>✓ Complete</span>}
-                          {u.status === 'error' && <span className="text-[10px] font-semibold" style={{ color: C.accent }}>✕ Error</span>}
+                          {u.status === 'complete' && <span className="text-[10px] font-semibold" style={{ color: C.success }}>&#10003; Complete</span>}
+                          {u.status === 'cancelled' && <span className="text-[10px] font-semibold" style={{ color: C.textDim }}>&#9632; Cancelled</span>}
+                          {u.status === 'error' && (
+                            <span className="text-[10px] font-semibold" style={{ color: C.accent }} title={u.error}>&#10005; {u.error ? (u.error.length > 40 ? u.error.slice(0, 40) + '...' : u.error) : 'Error'}</span>
+                          )}
                           {u.status === 'uploading' && (
                             <>
-                              <button className="h-7 w-7 rounded-lg flex items-center justify-center transition-colors hover:bg-white/[0.06]" style={{ color: C.textSec }}>
+                              <button onClick={() => pauseUpload(u.id)} className="h-7 w-7 rounded-lg flex items-center justify-center transition-colors hover:bg-white/[0.06]" style={{ color: C.textSec }}>
                                 <Pause className="h-3.5 w-3.5" />
                               </button>
-                              <button onClick={() => setUploads(prev => prev.filter(x => x.id !== u.id))} className="h-7 w-7 rounded-lg flex items-center justify-center transition-colors hover:bg-white/[0.06]" style={{ color: C.textSec }}>
+                              <button onClick={() => cancelUpload(u.id)} className="h-7 w-7 rounded-lg flex items-center justify-center transition-colors hover:bg-white/[0.06]" style={{ color: C.textSec }}>
                                 <X className="h-3.5 w-3.5" />
                               </button>
                             </>
@@ -797,7 +1241,7 @@ export default function VideoAdsManager() {
 
               {/* Pagination */}
               <div className="flex items-center justify-between px-3 py-2.5 border-t" style={{ borderColor: C.border }}>
-                <p className="text-[10px]" style={{ color: C.textDim }}>Showing {((currentPage - 1) * perPage) + 1}–{Math.min(currentPage * perPage, filteredAds.length)} of {filteredAds.length} ads</p>
+                <p className="text-[10px]" style={{ color: C.textDim }}>Showing {((currentPage - 1) * perPage) + 1}&ndash;{Math.min(currentPage * perPage, filteredAds.length)} of {filteredAds.length} ads</p>
                 <div className="flex items-center gap-1">
                   <button
                     onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
@@ -823,7 +1267,7 @@ export default function VideoAdsManager() {
                       </button>
                     )
                   })}
-                  {totalPages > 5 && <span className="text-[10px]" style={{ color: C.textDim }}>…</span>}
+                  {totalPages > 5 && <span className="text-[10px]" style={{ color: C.textDim }}>&hellip;</span>}
                   {totalPages > 5 && (
                     <button
                       onClick={() => setCurrentPage(totalPages)}
@@ -876,7 +1320,7 @@ export default function VideoAdsManager() {
                 {/* Time markers */}
                 <div className="flex items-center justify-between mb-2">
                   {Array.from({ length: 13 }, (_, i) => {
-                    const totalSec = i * 600 // 10 min intervals = 2h total
+                    const totalSec = i * 600
                     return (
                       <span key={i} className="text-[9px] font-mono" style={{ color: C.textDim }}>
                         {fmtTime(totalSec)}
@@ -1296,7 +1740,7 @@ export default function VideoAdsManager() {
                   <div className="border-2 border-dashed rounded-xl p-4 flex flex-col items-center gap-2 cursor-pointer transition-colors hover:border-red-500/40" style={{ borderColor: C.borderLight }}>
                     <CloudUpload className="h-6 w-6" style={{ color: C.accent }} />
                     <p className="text-xs" style={{ color: C.textTer }}>Click to upload or drag & drop</p>
-                    <p className="text-[10px]" style={{ color: C.textDim }}>MP4, MOV, WebM, JPG, PNG (max 5GB)</p>
+                    <p className="text-[10px]" style={{ color: C.textDim }}>MP4, MOV, WebM, AVI, MKV, JPG, PNG, WebP, GIF (max 5GB)</p>
                   </div>
                 </div>
               </div>
