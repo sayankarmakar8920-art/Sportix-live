@@ -160,3 +160,41 @@ Stage Summary:
 - Removed redundant padding and min-h-screen wrappers
 - Grid gaps responsive: gap-3 on mobile, gap-4 on md+
 - Card padding responsive: p-3 on mobile, p-4 on sm+
+---
+Task ID: 6
+Agent: Main Agent + 4 parallel subagents
+Task: Fix all admin pages — remove faltu space, proper UI, real-time KPIs, 5GB upload, no framer-motion
+
+Work Log:
+- Analyzed 3 screenshots via VLM: Video Upload modal, Match Schedules, Hero/Footer Ads upload
+- Rebuilt ReplaysPage.tsx (complete rewrite):
+  - Real-time KPI updates every 3 seconds (useState + setInterval)
+  - 6 KPI cards: Total Replays, Total Viewers, Replay Time, Avg Watch Time, Completion Rate, Unique Replays
+  - NO framer-motion — all CSS transitions
+  - Pure SVG charts (sparklines, area chart, donut charts)
+  - Tight spacing: p-3 cards, space-y-3, gap-2.5
+  - Full responsive: mobile/tablet/laptop/PC
+- Fixed VideosPage.tsx:
+  - Removed framer-motion completely
+  - Added 5GB upload support (MP4, MOV, AVI, MKV, WebM)
+  - Format validation with user-friendly error messages
+  - Tightened spacing
+- Fixed HeroFooterAdsManager.tsx:
+  - Upload now supports both images AND videos
+  - Hero Ads / Footer Ads tabs with red active state (border-bottom style)
+  - Image preview: JPG, PNG, WebP (max 10MB)
+  - Video preview: MP4, MOV, WebM (max 5GB)
+  - Tightened all spacing
+- Fixed AdsManagerUI.tsx (previous session):
+  - Already rebuilt with pure SVG charts, no recharts
+  - Tight spacing, Netflix theme
+- Fixed VideoAdsManager.tsx (previous session):
+  - Already removed framer-motion, tightened spacing
+- All 5 admin child pages verified: 0 lint errors
+
+Stage Summary:
+- ReplaysPage: Complete rewrite with real-time KPIs, no framer-motion, pure SVG
+- VideosPage: 5GB video upload support, no framer-motion
+- HeroFooterAdsManager: Image+Video upload, proper tabs, tight spacing
+- All pages: No framer-motion in admin pages (only frontend display components)
+- 0 compilation errors across all files

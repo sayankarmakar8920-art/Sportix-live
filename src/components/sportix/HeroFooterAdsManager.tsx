@@ -12,7 +12,7 @@ import {
   Edit3, Trash2, MoreHorizontal, Info, Zap, Clock, Film,
   BarChart3, ArrowUpRight, Monitor, Smartphone, Tablet, Settings,
   Check, Image as ImageIcon, Megaphone, Star, ChevronUp, ExternalLink,
-  MonitorSmartphone, Layout, Type, Link2, CalendarDays,
+  MonitorSmartphone, Layout, Type, Link2, CalendarDays, Video,
 } from 'lucide-react'
 
 /* ═══════════════════════════════════════════════════════════════
@@ -186,7 +186,8 @@ export default function HeroFooterAdsManager() {
   const [createTab, setCreateTab] = useState<'hero' | 'footer'>('hero')
   const [previewTab, setPreviewTab] = useState<'hero' | 'footer'>('hero')
   const [previewIdx, setPreviewIdx] = useState(0)
-  const [uploadUrl, setUploadUrl] = useState('')
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null)
+  const [uploadPreview, setUploadPreview] = useState<string | null>(null)
   const [adLink, setAdLink] = useState('https://example.com')
   const [openIn, setOpenIn] = useState('New Tab')
   const [adEnabled, setAdEnabled] = useState(true)
@@ -202,6 +203,17 @@ export default function HeroFooterAdsManager() {
   const [startDate, setStartDate] = useState('2025-05-10')
   const [endDate, setEndDate] = useState('2025-06-10')
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const imgTypes = ['image/jpeg', 'image/png', 'image/webp']
+    const vidTypes = ['video/mp4', 'video/quicktime', 'video/webm']
+    if (!imgTypes.includes(file.type) && !vidTypes.includes(file.type)) return
+    setUploadedFile(file)
+    if (uploadPreview) URL.revokeObjectURL(uploadPreview)
+    setUploadPreview(URL.createObjectURL(file))
+  }
+  const isVideoFile = uploadedFile?.type.startsWith('video/')
   const perPage = 8
 
   // KPIs
@@ -253,11 +265,11 @@ export default function HeroFooterAdsManager() {
   ]
 
   return (
-    <div className="space-y-4 min-w-0">
+    <div className="space-y-3 min-w-0">
       {/* ══════════════════════════════════════
           PAGE HEADER
           ════════════════════════════════════════ */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 md:gap-4 transition-all duration-200">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 transition-all duration-200">
         <div>
           <h1 className="text-2xl font-bold text-white tracking-tight">Hero & Footer Ads</h1>
           <p className="text-sm mt-0.5" style={{ color: C.textTer }}>Create, manage and optimize hero banner & footer ads across your website</p>
@@ -283,7 +295,7 @@ export default function HeroFooterAdsManager() {
           const Icon = kpi.icon
           return (
             <div key={kpi.label}
-              className="rounded-2xl p-4 relative overflow-hidden transition-all duration-200"
+              className="rounded-2xl p-3 relative overflow-hidden transition-all duration-200"
               style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 100%)', border: '1px solid rgba(255,255,255,0.06)' }}>
               <div className="absolute top-0 right-0 w-20 h-20 rounded-full opacity-20 blur-2xl" style={{ background: kpi.color }} />
               <div className="flex items-center justify-between mb-3">
@@ -323,8 +335,8 @@ export default function HeroFooterAdsManager() {
           OVERVIEW TAB
           ════════════════════════════════════════════════════ */}
       {activeTab === 'overview' && (
-        <div className="space-y-4">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 md:gap-4">
+        <div className="space-y-3">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-2.5">
               {/* Performance Chart */}
               <GlassCard className="lg:col-span-2" style={{ padding: 0 }}>
                 <div className="flex items-center justify-between px-3 pt-3 pb-2">
@@ -433,44 +445,70 @@ export default function HeroFooterAdsManager() {
           CREATE AD TAB
           ════════════════════════════════════════════════════ */}
       {activeTab === 'create' && (
-        <div className="space-y-4">
+        <div className="space-y-3">
             <GlassCard>
               {/* Tabs */}
-              <div className="flex items-center gap-1 mb-3 p-1 rounded-xl w-fit" style={{ background: 'rgba(255,255,255,0.04)' }}>
+              <div className="flex items-center gap-0 mb-3 border-b" style={{ borderColor: C.border }}>
                 {(['hero', 'footer'] as const).map(t => (
-                  <button key={t} onClick={() => setCreateTab(t)} className="flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-medium transition-all"
-                    style={{ background: createTab === t ? C.accent : 'transparent', color: createTab === t ? '#fff' : C.textTer }}>
-                    {t === 'hero' ? <Film className="h-3.5 w-3.5" /> : <Layout className="h-3.5 w-3.5" />}
+                  <button key={t} onClick={() => setCreateTab(t)} className="flex items-center gap-2 px-5 py-2.5 text-xs font-semibold transition-all border-b-2 -mb-px"
+                    style={{ borderColor: createTab === t ? C.accent : 'transparent', color: createTab === t ? C.accent : C.textTer }}>
+                    {t === 'hero' ? <Film className="h-4 w-4" /> : <Layout className="h-4 w-4" />}
                     {t === 'hero' ? 'Hero Ads' : 'Footer Ads'}
                   </button>
                 ))}
               </div>
 
               {/* Upload Zone */}
-              <div className="border-2 border-dashed rounded-2xl p-10 flex flex-col items-center justify-center gap-3 transition-colors cursor-pointer hover:border-red-500/40"
+              <div className="border-2 border-dashed rounded-2xl p-8 flex flex-col items-center justify-center gap-2.5 transition-colors cursor-pointer hover:border-red-500/40"
                 style={{ borderColor: C.borderLight, background: 'rgba(255,255,255,0.01)' }}
                 onClick={() => fileInputRef.current?.click()}>
                 <div className="h-14 w-14 rounded-2xl flex items-center justify-center" style={{ background: C.accentDim }}>
                   <CloudUpload className="h-7 w-7" style={{ color: C.accent }} />
                 </div>
-                <p className="text-sm font-medium text-white">Drag & drop image or click to upload</p>
+                <p className="text-sm font-medium text-white">Drag & drop image or video or click to upload</p>
                 <button className="flex items-center gap-2 rounded-xl px-5 py-2.5 text-xs font-semibold text-white transition-all hover:brightness-110"
                   style={{ background: C.accent }} onClick={e => { e.stopPropagation(); fileInputRef.current?.click() }}>
                   <Upload className="h-3.5 w-3.5" /> Choose File
                 </button>
-                <p className="text-[10px]" style={{ color: C.textDim }}>Supports: JPG, PNG, WebP (Max 10MB)</p>
-                <input ref={fileInputRef} type="file" accept="image/*" className="hidden" />
+                <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
+                  <div className="flex items-center gap-1">
+                    <ImageIcon className="h-3 w-3" style={{ color: C.textDim }} />
+                    <span className="text-[10px]" style={{ color: C.textDim }}>JPG, PNG, WebP (max 10MB)</span>
+                  </div>
+                  <span className="text-[10px]" style={{ color: C.textDim }}>·</span>
+                  <div className="flex items-center gap-1">
+                    <Video className="h-3 w-3" style={{ color: C.textDim }} />
+                    <span className="text-[10px]" style={{ color: C.textDim }}>MP4, MOV, WebM (max 5GB)</span>
+                  </div>
+                </div>
+                <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm" className="hidden" onChange={handleFileSelect} />
               </div>
 
-              {/* Image URL input */}
-              {uploadUrl && (
-                <div className="mt-3 rounded-xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                  <div className="aspect-[21/9]"><img src={uploadUrl} alt="Upload preview" className="w-full h-full object-cover" /></div>
+              {/* Upload Preview */}
+              {uploadPreview && (
+                <div className="mt-3 rounded-xl overflow-hidden relative" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div className="aspect-[21/9]">
+                    {isVideoFile ? (
+                      <video src={uploadPreview} controls className="w-full h-full object-cover" />
+                    ) : (
+                      <img src={uploadPreview} alt="Upload preview" className="w-full h-full object-cover" />
+                    )}
+                  </div>
+                  <button onClick={() => { if (uploadPreview) URL.revokeObjectURL(uploadPreview); setUploadPreview(null); setUploadedFile(null) }}
+                    className="absolute top-2 right-2 h-7 w-7 rounded-lg flex items-center justify-center bg-black/60 hover:bg-black/80 transition-colors" style={{ color: '#fff' }}>
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                  {uploadedFile && (
+                    <div className="absolute bottom-2 left-2 flex items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-medium" style={{ background: 'rgba(0,0,0,0.7)', color: C.textSec }}>
+                      {isVideoFile ? <Video className="h-3 w-3" /> : <ImageIcon className="h-3 w-3" />}
+                      {uploadedFile.name} ({(uploadedFile.size / (1024 * 1024)).toFixed(1)}MB)
+                    </div>
+                  )}
                 </div>
               )}
 
               {/* Ad Link */}
-              <div className="mt-3 space-y-4">
+              <div className="mt-3 space-y-3">
                 <div>
                   <label className="text-[11px] font-semibold uppercase tracking-wider block mb-1.5" style={{ color: C.textTer }}>Ad Link (URL)</label>
                   <div className="flex items-center gap-2 rounded-xl border px-3.5 py-2.5" style={{ borderColor: C.border, background: 'rgba(255,255,255,0.03)' }}>
@@ -482,7 +520,7 @@ export default function HeroFooterAdsManager() {
 
                 {/* Open In + Toggle */}
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3 md:gap-4">
+                  <div className="flex items-center gap-2.5">
                     <div>
                       <label className="text-[11px] font-semibold uppercase tracking-wider block mb-1.5" style={{ color: C.textTer }}>Open In</label>
                       <select value={openIn} onChange={e => setOpenIn(e.target.value)}
@@ -517,9 +555,9 @@ export default function HeroFooterAdsManager() {
           ALL ADS LIST TAB
           ════════════════════════════════════════════════════ */}
       {activeTab === 'ads-list' && (
-        <div className="space-y-4">
+        <div className="space-y-3">
             <GlassCard style={{ padding: 0 }}>
-              <div className="p-4 border-b" style={{ borderColor: C.border }}>
+              <div className="p-3 border-b" style={{ borderColor: C.border }}>
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
                   <div className="flex items-center gap-1 p-1 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)' }}>
                     {['all', 'hero', 'footer'].map(t => (
@@ -599,7 +637,7 @@ export default function HeroFooterAdsManager() {
               </div>
 
               {/* Pagination */}
-              <div className="flex items-center justify-between px-4 py-3 border-t" style={{ borderColor: C.border }}>
+              <div className="flex items-center justify-between px-3 py-2.5 border-t" style={{ borderColor: C.border }}>
                 <p className="text-[10px]" style={{ color: C.textDim }}>Showing {((currentPage - 1) * perPage) + 1}–{Math.min(currentPage * perPage, filtered.length)} of {filtered.length}</p>
                 <div className="flex items-center gap-1">
                   <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
@@ -623,7 +661,7 @@ export default function HeroFooterAdsManager() {
           PREVIEW TAB
           ════════════════════════════════════════════════════ */}
       {activeTab === 'preview' && (
-        <div className="space-y-4">
+        <div className="space-y-3">
             <GlassCard>
               <div className="flex items-center gap-1 mb-3 p-1 rounded-xl w-fit" style={{ background: 'rgba(255,255,255,0.04)' }}>
                 {(['hero', 'footer'] as const).map(t => (
@@ -693,7 +731,7 @@ export default function HeroFooterAdsManager() {
           TOP ADS TAB
           ════════════════════════════════════════════════════ */}
       {activeTab === 'top-ads' && (
-        <div className="space-y-4">
+        <div className="space-y-3">
             <GlassCard>
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-semibold text-white">Top Performing Ads</h3>
@@ -702,7 +740,7 @@ export default function HeroFooterAdsManager() {
               <div className="space-y-2">
                 {topAds.map((ad, i) => (
                   <div key={ad.id}
-                    className="flex items-center gap-3 md:gap-4 rounded-xl p-3.5 transition-all duration-200 hover:bg-white/[0.02]"
+                    className="flex items-center gap-2.5 rounded-xl p-3.5 transition-all duration-200 hover:bg-white/[0.02]"
                     style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.05)' }}>
                     <div className="h-8 w-8 rounded-lg flex items-center justify-center font-bold text-sm flex-shrink-0"
                       style={{ background: i === 0 ? 'rgba(234,179,8,0.15)' : i === 1 ? 'rgba(192,192,192,0.12)' : i === 2 ? 'rgba(205,127,50,0.12)' : 'rgba(255,255,255,0.05)',
@@ -732,10 +770,10 @@ export default function HeroFooterAdsManager() {
           SETTINGS TAB
           ════════════════════════════════════════════════════ */}
       {activeTab === 'settings' && (
-        <div className="space-y-4">
+        <div className="space-y-3">
             <GlassCard>
               <h3 className="text-sm font-semibold text-white mb-3">Ads Settings</h3>
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div><p className="text-xs font-medium text-white">Ad Rotation</p><p className="text-[10px] mt-0.5" style={{ color: C.textDim }}>Enable or disable automatic ad rotation</p></div>
                   <select value={adRotation} onChange={e => setAdRotation(e.target.value)} className="rounded-xl border px-3 py-1.5 text-[11px] text-white focus:outline-none" style={{ background: 'rgba(255,255,255,0.03)', borderColor: C.border }}>
@@ -789,7 +827,7 @@ export default function HeroFooterAdsManager() {
                 </div>
                 <div className="h-px" style={{ background: C.border }} />
 
-                <div className="grid grid-cols-2 gap-3 md:gap-4">
+                <div className="grid grid-cols-2 gap-2.5">
                   <div>
                     <label className="text-[11px] font-semibold uppercase tracking-wider block mb-1.5" style={{ color: C.textTer }}>Start Date</label>
                     <div className="flex items-center gap-2 rounded-xl border px-3 py-1.5" style={{ borderColor: C.border, background: 'rgba(255,255,255,0.03)' }}>
@@ -828,15 +866,15 @@ export default function HeroFooterAdsManager() {
                 <h3 className="text-base font-bold text-white">Create New Ad</h3>
                 <button onClick={() => setShowCreateModal(false)} className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-white/[0.06]" style={{ color: C.textSec }}><X className="h-4 w-4" /></button>
               </div>
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <div><label className="text-[11px] font-semibold uppercase tracking-wider block mb-1.5" style={{ color: C.textTer }}>Ad Name</label><input className="w-full rounded-xl border px-3.5 py-2.5 text-sm text-white placeholder:text-white/15 focus:outline-none" style={{ background: 'rgba(255,255,255,0.03)', borderColor: C.border }} placeholder="Enter ad name..." /></div>
                 <div className="grid grid-cols-2 gap-3">
                   <div><label className="text-[11px] font-semibold uppercase tracking-wider block mb-1.5" style={{ color: C.textTer }}>Placement</label><select className="w-full rounded-xl border px-3.5 py-2.5 text-sm text-white focus:outline-none" style={{ background: 'rgba(255,255,255,0.03)', borderColor: C.border }}><option>Hero Banner</option><option>Footer Banner</option><option>Sticky Banner</option></select></div>
                   <div><label className="text-[11px] font-semibold uppercase tracking-wider block mb-1.5" style={{ color: C.textTer }}>Size</label><select className="w-full rounded-xl border px-3.5 py-2.5 text-sm text-white focus:outline-none" style={{ background: 'rgba(255,255,255,0.03)', borderColor: C.border }}><option>1920×600</option><option>1200×200</option><option>728×90</option></select></div>
                 </div>
-                <div><label className="text-[11px] font-semibold uppercase tracking-wider block mb-1.5" style={{ color: C.textTer }}>Ad Image</label>
+                <div><label className="text-[11px] font-semibold uppercase tracking-wider block mb-1.5" style={{ color: C.textTer }}>Ad Image / Video</label>
                   <div className="border-2 border-dashed rounded-xl p-4 flex flex-col items-center gap-2 cursor-pointer hover:border-red-500/40" style={{ borderColor: C.borderLight }}>
-                    <CloudUpload className="h-6 w-6" style={{ color: C.accent }} /><p className="text-xs" style={{ color: C.textTer }}>Click to upload</p><p className="text-[10px]" style={{ color: C.textDim }}>JPG, PNG, WebP (max 10MB)</p>
+                    <CloudUpload className="h-6 w-6" style={{ color: C.accent }} /><p className="text-xs" style={{ color: C.textTer }}>Click to upload</p><p className="text-[10px]" style={{ color: C.textDim }}>JPG, PNG, WebP, MP4, MOV, WebM</p>
                   </div>
                 </div>
               </div>

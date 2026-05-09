@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+
 import {
   Search, CloudUpload, Play, Pencil, Trash2, MoreHorizontal, Grid3X3,
   List, ChevronLeft, ChevronRight, Filter, Calendar, Clock, Eye, HardDrive,
@@ -84,11 +84,8 @@ function fmtDate(d: string): string {
    ═══════════════════════════════════════════════════════════════ */
 function GlassCard({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-      className={`rounded-2xl ${className}`}
+    <div
+      className={`rounded-2xl transition-all duration-200 ${className}`}
       style={{
         background: 'linear-gradient(135deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 100%)',
         backdropFilter: 'blur(20px)',
@@ -96,7 +93,7 @@ function GlassCard({ children, className = '' }: { children: React.ReactNode; cl
       }}
     >
       {children}
-    </motion.div>
+    </div>
   )
 }
 
@@ -109,11 +106,8 @@ function VideoGridCard({ video, index, onWatch, onEdit, onDelete }: {
 }) {
   const [hovered, setHovered] = useState(false)
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.04, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-      className="rounded-2xl overflow-hidden group cursor-pointer"
+    <div
+      className="rounded-2xl overflow-hidden group cursor-pointer transition-all duration-200"
       style={{
         background: 'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)',
         border: `1px solid ${hovered ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.06)'}`,
@@ -136,28 +130,23 @@ function VideoGridCard({ video, index, onWatch, onEdit, onDelete }: {
           {fmtDuration(video.duration)}
         </div>
         {/* Play overlay on hover */}
-        <AnimatePresence>
           {hovered && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 flex items-center justify-center"
+            <div
+              className="absolute inset-0 flex items-center justify-center transition-all duration-200"
               style={{ background: 'rgba(0,0,0,0.5)' }}
               onClick={() => onWatch(video)}
             >
               <div className="h-12 w-12 rounded-full flex items-center justify-center" style={{ background: C.accent, boxShadow: `0 4px 20px ${C.accentGlow}` }}>
                 <Play className="h-5 w-5 text-white ml-0.5" fill="white" />
               </div>
-            </motion.div>
+            </div>
           )}
-        </AnimatePresence>
         {/* Status badge */}
         {video.status === 'processing' && (
           <div className="absolute top-2 left-2 flex items-center gap-1 rounded-md px-2 py-0.5 text-[9px] font-bold" style={{ background: C.infoDim, color: C.info }}>
-            <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}>
+            <div className="animate-spin">
               <Clock className="h-3 w-3" />
-            </motion.div>
+            </div>
             Processing
           </div>
         )}
@@ -178,7 +167,7 @@ function VideoGridCard({ video, index, onWatch, onEdit, onDelete }: {
         </button>
       </div>
       {/* Info */}
-      <div className="p-3.5 space-y-2">
+      <div className="p-3 space-y-2">
         <h3 className="text-sm font-semibold text-white truncate">{video.title}</h3>
         <span className="inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-semibold" style={{ background: C.purpleDim, color: C.purple }}>
           {video.category || 'Uncategorized'}
@@ -213,7 +202,7 @@ function VideoGridCard({ video, index, onWatch, onEdit, onDelete }: {
           </button>
         </div>
       </div>
-    </motion.div>
+    </div>
   )
 }
 
@@ -225,10 +214,8 @@ function VideoListRow({ video, onWatch, onEdit, onDelete }: {
   onWatch: (v: VideoItem) => void; onEdit: (v: VideoItem) => void; onDelete: (v: VideoItem) => void
 }) {
   return (
-    <motion.div
-      initial={{ opacity: 0, x: -10 }}
-      animate={{ opacity: 1, x: 0 }}
-      className="flex items-center gap-3 md:gap-4 rounded-xl p-3 transition-all hover:bg-white/[0.02] group"
+    <div
+      className="flex items-center gap-3 md:gap-4 rounded-xl p-3 transition-all duration-200 hover:bg-white/[0.02] group"
       style={{ border: '1px solid transparent' }}
       onMouseEnter={e => e.currentTarget.style.borderColor = C.border}
       onMouseLeave={e => e.currentTarget.style.borderColor = 'transparent'}
@@ -278,7 +265,7 @@ function VideoListRow({ video, onWatch, onEdit, onDelete }: {
           <Trash2 className="h-3.5 w-3.5" />
         </button>
       </div>
-    </motion.div>
+    </div>
   )
 }
 
@@ -287,18 +274,12 @@ function VideoListRow({ video, onWatch, onEdit, onDelete }: {
    ═══════════════════════════════════════════════════════════════ */
 function DeleteModal({ video, onConfirm, onCancel }: { video: VideoItem; onConfirm: () => void; onCancel: () => void }) {
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 transition-all duration-200"
       onClick={onCancel}
     >
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 10 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95 }}
+      <div
         className="relative w-full max-w-md rounded-2xl p-6 space-y-4"
         style={{ background: '#181818', border: '1px solid rgba(255,255,255,0.08)' }}
         onClick={e => e.stopPropagation()}
@@ -323,8 +304,8 @@ function DeleteModal({ video, onConfirm, onCancel }: { video: VideoItem; onConfi
             <Trash2 className="h-3.5 w-3.5" /> Delete
           </button>
         </div>
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
   )
 }
 
@@ -408,8 +389,27 @@ export default function VideosPage() {
     } catch { /* silent */ }
     setDeleteTarget(null)
   }, [deleteTarget])
+  const MAX_FILE_SIZE = 5 * 1024 * 1024 * 1024 // 5GB
+  const ACCEPTED_FORMATS = ['mp4', 'mov', 'avi', 'mkv', 'webm']
+
   const handleUpload = useCallback(() => {
     fileInputRef.current?.click()
+  }, [])
+  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const ext = file.name.split('.').pop()?.toLowerCase()
+    if (!ext || !ACCEPTED_FORMATS.includes(ext)) {
+      alert('Invalid format. Accepted: MP4, MOV, AVI, MKV, WebM')
+      e.target.value = ''
+      return
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      alert('File is too large. Maximum size is 5 GB.')
+      e.target.value = ''
+      return
+    }
+    alert(`Uploading: ${file.name} (${fmtBytes(file.size)})`)
   }, [])
 
   /* Loading state */
@@ -429,7 +429,7 @@ export default function VideosPage() {
           {Array.from({ length: 8 }, (_, i) => (
             <div key={i} className="rounded-2xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
               <div className="aspect-video animate-pulse" style={{ background: 'rgba(255,255,255,0.04)' }} />
-              <div className="p-3.5 space-y-2">
+              <div className="p-3 space-y-2">
                 <div className="h-4 w-3/4 rounded animate-pulse" style={{ background: 'rgba(255,255,255,0.06)' }} />
                 <div className="h-3 w-1/3 rounded animate-pulse" style={{ background: 'rgba(255,255,255,0.04)' }} />
                 <div className="h-3 w-full rounded animate-pulse" style={{ background: 'rgba(255,255,255,0.03)' }} />
@@ -444,10 +444,8 @@ export default function VideosPage() {
   return (
     <div className="space-y-4 min-w-0">
       {/* ═══ Page Header ═══ */}
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 md:gap-4"
+      <div
+        className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 md:gap-4 transition-all duration-200"
       >
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-xl flex items-center justify-center" style={{ background: C.infoDim }}>
@@ -465,15 +463,12 @@ export default function VideosPage() {
         >
           <CloudUpload className="h-4 w-4" /> Upload Video
         </button>
-        <input ref={fileInputRef} type="file" accept="video/*" className="hidden" />
-      </motion.div>
+        <input ref={fileInputRef} type="file" accept=".mp4,.mov,.avi,.mkv,.webm" className="hidden" onChange={handleFileChange} />
+      </div>
 
       {/* ═══ Stats Bar ═══ */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="grid grid-cols-2 md:grid-cols-4 gap-3"
+      <div
+        className="grid grid-cols-2 md:grid-cols-4 gap-3 transition-all duration-200"
       >
         {[
           { label: 'Total Videos', value: videos.length, icon: Video, color: C.info },
@@ -483,7 +478,7 @@ export default function VideosPage() {
         ].map((s, i) => {
           const Icon = s.icon
           return (
-            <div key={i} className="rounded-xl p-3.5 flex items-center gap-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+            <div key={i} className="rounded-xl p-3 flex items-center gap-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
               <div className="h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `${s.color}15` }}>
                 <Icon className="h-4 w-4" style={{ color: s.color }} />
               </div>
@@ -494,11 +489,11 @@ export default function VideosPage() {
             </div>
           )
         })}
-      </motion.div>
+      </div>
 
       {/* ═══ Toolbar ═══ */}
       <GlassCard className="!p-0 overflow-hidden">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 p-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 p-3">
           {/* Search */}
           <div className="flex-1 min-w-[200px]">
             <div className="flex items-center gap-2 rounded-xl border px-3 py-2" style={{ borderColor: C.border, background: 'rgba(255,255,255,0.02)' }}>
@@ -661,15 +656,13 @@ export default function VideosPage() {
       )}
 
       {/* ═══ Delete Modal ═══ */}
-      <AnimatePresence>
-        {deleteTarget && (
-          <DeleteModal
-            video={deleteTarget}
-            onConfirm={handleDelete}
-            onCancel={() => setDeleteTarget(null)}
-          />
-        )}
-      </AnimatePresence>
+      {deleteTarget && (
+        <DeleteModal
+          video={deleteTarget}
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      )}
     </div>
   )
 }
