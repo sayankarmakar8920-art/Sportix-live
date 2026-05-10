@@ -37,14 +37,14 @@ export default function BottomNav() {
       <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-white/[0.06] bg-[#141414]/98 backdrop-blur-xl lg:hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
           <span className="text-sm font-semibold text-white">More Options</span>
-          <button onClick={() => setShowMore(false)} className="text-xs text-[#E50914] font-medium">Close</button>
+          <button onClick={() => setShowMore(false)} className="min-h-[44px] px-3 text-xs text-[#E50914] font-medium touch-active">Close</button>
         </div>
         <div className="grid grid-cols-3 gap-1 p-3">
           {MORE_ITEMS.map((item) => (
             <button
               key={item.id}
               onClick={() => { setCurrentView(item.id); setShowMore(false) }}
-              className={`flex flex-col items-center gap-1.5 rounded-xl py-3 transition-all touch-active ${
+              className={`flex flex-col items-center gap-1.5 rounded-xl px-2 py-3.5 min-h-[44px] transition-all touch-active ${
                 currentView === item.id ? 'bg-[#E50914]/10 text-[#E50914]' : 'text-white/50 hover:bg-white/[0.03]'
               }`}
             >
@@ -73,7 +73,7 @@ export default function BottomNav() {
                   setCurrentView(item.id)
                 }
               }}
-              className={`relative flex flex-col items-center gap-0.5 rounded-lg px-4 py-1.5 transition-all duration-150 touch-active ${
+              className={`relative flex flex-col items-center gap-0.5 rounded-lg px-3 py-1 min-h-[44px] justify-center transition-all duration-150 touch-active ${
                 isActive
                   ? 'text-[#E50914]'
                   : 'text-white/30 hover:text-white/50'

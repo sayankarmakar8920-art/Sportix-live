@@ -245,11 +245,11 @@ export default function AdsManagerUI() {
       {/* Ads Table */}
       <div className="rounded-2xl border overflow-hidden" style={{ background: C.card, borderColor: C.border }}>
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full min-w-[1000px]">
             <thead>
               <tr className="border-b" style={{ borderColor: C.border, background: 'rgba(255,255,255,0.02)' }}>
                 {['Ad', 'Type', 'Position', 'Device', 'Status', 'Impressions', 'Clicks', 'CTR', 'Revenue', 'Schedule', 'Actions'].map(h => (
-                  <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textDim }}>{h}</th>
+                  <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap" style={{ color: C.textDim }}>{h}</th>
                 ))}
               </tr>
             </thead>

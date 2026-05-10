@@ -91,7 +91,7 @@ export default function Header() {
                   onBlur={() => { if (!searchQuery) setSearchOpen(false) }}
                 />
               </div>
-              <button onClick={() => { setSearchOpen(false); setSearchQuery('') }} className="rounded-lg p-1.5 text-white/30 hover:text-white hover:bg-white/5">
+              <button onClick={() => { setSearchOpen(false); setSearchQuery('') }} className="rounded-lg p-2.5 text-white/30 hover:text-white hover:bg-white/5 touch-active">
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -108,7 +108,7 @@ export default function Header() {
 
         {/* Right: Actions */}
         <div className="flex items-center gap-1.5">
-          <button onClick={() => setSearchOpen(!searchOpen)} className="rounded-lg p-2 text-white/40 transition-all hover:bg-white/5 hover:text-white/70 md:hidden">
+          <button onClick={() => setSearchOpen(!searchOpen)} className="flex h-10 w-10 items-center justify-center rounded-lg text-white/40 transition-all hover:bg-white/5 hover:text-white/70 md:hidden touch-active">
             <Search className="h-[18px] w-[18px]" />
           </button>
         </div>

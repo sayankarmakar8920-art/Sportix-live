@@ -531,27 +531,27 @@ export default function UserDashboard() {
       </div>
 
       {/* ════════ 6 KPI CARDS ════════ */}
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
         {kpis.map((kpi, idx) => {
           const Icon = kpi.icon
           const isLive = idx === 0
           return (
             <div
               key={kpi.label}
-              className="rounded-2xl border p-3.5 transition-all duration-200 hover:border-white/10"
+              className="rounded-2xl border p-3 sm:p-3.5 transition-all duration-200 hover:border-white/10"
               style={{ background: C.card, borderColor: C.border }}
             >
-              <div className="flex items-center justify-between mb-2.5">
-                <div className="flex h-8 w-8 items-center justify-center rounded-xl relative" style={{ background: `${kpi.color}18` }}>
-                  <Icon className="h-4 w-4" style={{ color: kpi.color }} />
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-xl relative" style={{ background: `${kpi.color}18` }}>
+                  <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" style={{ color: kpi.color }} />
                   {isLive && (
                     <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-[#ff3b3b] live-pulse" />
                   )}
                 </div>
-                <Sparkline data={kpi.sparkData} color={kpi.color} width={70} height={28} />
+                <Sparkline data={kpi.sparkData} color={kpi.color} width={60} height={24} className="hidden sm:block" />
               </div>
-              <p className="text-[10px] font-medium uppercase tracking-wider mb-1" style={{ color: C.textTer }}>{kpi.label}</p>
-              <p className="text-lg sm:text-xl font-bold text-white leading-tight">
+              <p className="text-[9px] sm:text-[10px] font-medium uppercase tracking-wider mb-0.5" style={{ color: C.textTer }}>{kpi.label}</p>
+              <p className="text-base sm:text-lg md:text-xl font-bold text-white leading-tight truncate">
                 {isLive && (<span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-[#ff3b3b] live-pulse" /></span>)}
                 {fmtKpi(kpi, idx)}
               </p>
@@ -628,7 +628,7 @@ export default function UserDashboard() {
           </div>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full min-w-[640px]">
             <thead>
               <tr className="border-b" style={{ borderColor: C.border, background: 'rgba(255,255,255,0.02)' }}>
                 {['Match', 'League', 'Sport', 'Time', 'Score', 'Status'].map((h) => (

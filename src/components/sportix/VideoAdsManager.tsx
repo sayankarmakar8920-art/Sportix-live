@@ -602,8 +602,12 @@ export default function VideoAdsManager() {
 
   const perPage = 8
 
-  /* ═══════ REAL UPLOAD via XMLHttpRequest ═══════ */
-  const realUpload = useCallback((file: File) => {
+  /* ═══════ CHUNK SIZE for large files ═══════ */
+  const CHUNK_UPLOAD_SIZE = 50 * 1024 * 1024 // 50MB per chunk for large files
+  const cancelledUploads = useRef<Set<string>>(new Set())
+
+  /* ═══════ REAL UPLOAD via Chunked XMLHttpRequest ═══════ */
+  const realUpload = useCallback(async (file: File) => {
     const entryId = uid()
 
     // Validate file extension
@@ -652,84 +656,205 @@ export default function VideoAdsManager() {
     }
     setUploads(prev => [entry, ...prev])
 
-    const xhr = new XMLHttpRequest()
-    xhrRefs.current.set(entryId, xhr)
+    // ─── Small file: single upload ───
+    if (file.size <= CHUNK_UPLOAD_SIZE) {
+      const xhr = new XMLHttpRequest()
+      xhrRefs.current.set(entryId, xhr)
 
-    const formData = new FormData()
-    formData.append('file', file)
+      const formData = new FormData()
+      formData.append('file', file)
 
-    xhr.upload.addEventListener('progress', (e) => {
-      if (e.lengthComputable) {
-        const progress = (e.loaded / e.total) * 100
-        const elapsed = (Date.now() - entry.startTime) / 1000
-        const speed = elapsed > 0 ? e.loaded / elapsed : 0
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable) {
+          const progress = (e.loaded / e.total) * 100
+          const elapsed = (Date.now() - entry.startTime) / 1000
+          const speed = elapsed > 0 ? e.loaded / elapsed : 0
+          setUploads(prev => prev.map(u =>
+            u.id === entryId
+              ? { ...u, progress, uploadedBytes: e.loaded, speed }
+              : u
+          ))
+        }
+      })
+
+      xhr.addEventListener('load', () => {
+        xhrRefs.current.delete(entryId)
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const res = JSON.parse(xhr.responseText)
+            if (res.success) {
+              setUploads(prev => prev.map(u =>
+                u.id === entryId
+                  ? { ...u, status: 'complete', progress: 100, uploadedBytes: u.totalBytes }
+                  : u
+              ))
+              return
+            } else {
+              setUploads(prev => prev.map(u =>
+                u.id === entryId
+                  ? { ...u, status: 'error', error: res.error || 'Upload failed' }
+                  : u
+              ))
+              return
+            }
+          } catch { /* ignore parse error */ }
+          setUploads(prev => prev.map(u =>
+            u.id === entryId
+              ? { ...u, status: 'complete', progress: 100, uploadedBytes: u.totalBytes }
+              : u
+          ))
+        } else {
+          let errorMsg = `Upload failed (HTTP ${xhr.status})`
+          try {
+            const res = JSON.parse(xhr.responseText)
+            errorMsg = res.error || errorMsg
+          } catch { /* ignore */ }
+          setUploads(prev => prev.map(u =>
+            u.id === entryId
+              ? { ...u, status: 'error', error: errorMsg }
+              : u
+          ))
+        }
+      })
+
+      xhr.addEventListener('error', () => {
+        xhrRefs.current.delete(entryId)
         setUploads(prev => prev.map(u =>
           u.id === entryId
-            ? { ...u, progress, uploadedBytes: e.loaded, speed }
+            ? { ...u, status: 'error', error: 'Network error. Please try again.' }
             : u
         ))
-      }
-    })
+      })
 
-    xhr.addEventListener('load', () => {
-      xhrRefs.current.delete(entryId)
-      if (xhr.status >= 200 && xhr.status < 300) {
-        let responseMsg = 'Upload complete'
-        try {
-          const res = JSON.parse(xhr.responseText)
-          if (res.success) {
-            responseMsg = res.message || 'Upload complete'
-          } else {
+      xhr.addEventListener('abort', () => {
+        xhrRefs.current.delete(entryId)
+        setUploads(prev => prev.map(u =>
+          u.id === entryId
+            ? { ...u, status: 'cancelled' }
+            : u
+        ))
+      })
+
+      xhr.open('POST', '/api/upload')
+      xhr.send(formData)
+      return
+    }
+
+    // ─── Large file: chunked upload ───
+    const fileId = `chunk_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
+    const totalChunks = Math.ceil(file.size / CHUNK_UPLOAD_SIZE)
+    let uploadedChunks = 0
+    let totalUploadedBytes = 0
+
+    const uploadNextChunk = async (chunkIdx: number): Promise<boolean> => {
+      if (cancelledUploads.current.has(entryId)) return false
+
+      const start = chunkIdx * CHUNK_UPLOAD_SIZE
+      const end = Math.min(start + CHUNK_UPLOAD_SIZE, file.size)
+      const chunk = file.slice(start, end)
+
+      return new Promise((resolve) => {
+        const xhr = new XMLHttpRequest()
+        xhrRefs.current.set(entryId, xhr)
+
+        xhr.upload.addEventListener('progress', (e) => {
+          if (e.lengthComputable) {
+            const chunkProgress = e.loaded / (end - start)
+            const totalProgress = ((uploadedChunks + chunkProgress) / totalChunks) * 100
+            const totalBytes = totalUploadedBytes + e.loaded
+            const elapsed = (Date.now() - entry.startTime) / 1000
+            const speed = elapsed > 0 ? totalBytes / elapsed : 0
             setUploads(prev => prev.map(u =>
               u.id === entryId
-                ? { ...u, status: 'error', error: res.error || 'Upload failed' }
+                ? { ...u, progress: totalProgress, uploadedBytes: totalBytes, speed }
                 : u
             ))
-            return
           }
-        } catch { /* ignore parse error */ }
-        setUploads(prev => prev.map(u =>
-          u.id === entryId
-            ? { ...u, status: 'complete', progress: 100, uploadedBytes: u.totalBytes }
-            : u
-        ))
-      } else {
-        let errorMsg = `Upload failed (HTTP ${xhr.status})`
-        try {
-          const res = JSON.parse(xhr.responseText)
-          errorMsg = res.error || errorMsg
-        } catch { /* ignore */ }
-        setUploads(prev => prev.map(u =>
-          u.id === entryId
-            ? { ...u, status: 'error', error: errorMsg }
-            : u
-        ))
-      }
-    })
+        })
 
-    xhr.addEventListener('error', () => {
-      xhrRefs.current.delete(entryId)
-      setUploads(prev => prev.map(u =>
-        u.id === entryId
-          ? { ...u, status: 'error', error: 'Network error. Please try again.' }
-          : u
-      ))
-    })
+        xhr.addEventListener('load', () => {
+          xhrRefs.current.delete(entryId)
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              const res = JSON.parse(xhr.responseText)
+              if (res.success) {
+                // If this was the last chunk and server assembled the file
+                if (res.url) {
+                  setUploads(prev => prev.map(u =>
+                    u.id === entryId
+                      ? { ...u, status: 'complete', progress: 100, uploadedBytes: u.totalBytes }
+                      : u
+                  ))
+                  resolve(true)
+                  return
+                }
+                uploadedChunks++
+                totalUploadedBytes += (end - start)
+                setUploads(prev => prev.map(u =>
+                  u.id === entryId
+                    ? { ...u, progress: (uploadedChunks / totalChunks) * 100, uploadedBytes: totalUploadedBytes }
+                    : u
+                ))
+                resolve(true)
+                return
+              }
+            } catch { /* ignore */ }
+          }
+          let errorMsg = `Chunk ${chunkIdx + 1} failed (HTTP ${xhr.status})`
+          try {
+            const res = JSON.parse(xhr.responseText)
+            errorMsg = res.error || errorMsg
+          } catch { /* ignore */ }
+          setUploads(prev => prev.map(u =>
+            u.id === entryId
+              ? { ...u, status: 'error', error: errorMsg }
+              : u
+          ))
+          resolve(false)
+        })
 
-    xhr.addEventListener('abort', () => {
-      xhrRefs.current.delete(entryId)
-      setUploads(prev => prev.map(u =>
-        u.id === entryId
-          ? { ...u, status: 'cancelled' }
-          : u
-      ))
-    })
+        xhr.addEventListener('error', () => {
+          xhrRefs.current.delete(entryId)
+          setUploads(prev => prev.map(u =>
+            u.id === entryId
+              ? { ...u, status: 'error', error: `Chunk ${chunkIdx + 1} network error` }
+              : u
+          ))
+          resolve(false)
+        })
 
-    xhr.open('POST', '/api/upload')
-    xhr.send(formData)
+        xhr.addEventListener('abort', () => {
+          xhrRefs.current.delete(entryId)
+          setUploads(prev => prev.map(u =>
+            u.id === entryId
+              ? { ...u, status: 'cancelled' }
+              : u
+          ))
+          resolve(false)
+        })
+
+        xhr.open('POST', '/api/upload')
+        xhr.setRequestHeader('x-upload-type', 'chunk')
+        xhr.setRequestHeader('x-file-id', fileId)
+        xhr.setRequestHeader('x-chunk-index', String(chunkIdx))
+        xhr.setRequestHeader('x-total-chunks', String(totalChunks))
+        xhr.setRequestHeader('x-file-name', file.name)
+        xhr.setRequestHeader('x-file-size', String(file.size))
+        xhr.setRequestHeader('x-file-mime', file.type || 'application/octet-stream')
+        xhr.send(chunk)
+      })
+    }
+
+    // Upload chunks sequentially
+    for (let i = 0; i < totalChunks; i++) {
+      if (cancelledUploads.current.has(entryId)) break
+      const ok = await uploadNextChunk(i)
+      if (!ok) break
+    }
   }, [uploadTab])
 
   const pauseUpload = useCallback((entryId: string) => {
+    cancelledUploads.current.add(entryId)
     const xhr = xhrRefs.current.get(entryId)
     if (xhr) {
       xhr.abort()
@@ -737,6 +862,7 @@ export default function VideoAdsManager() {
   }, [])
 
   const cancelUpload = useCallback((entryId: string) => {
+    cancelledUploads.current.add(entryId)
     const xhr = xhrRefs.current.get(entryId)
     if (xhr) {
       xhr.abort()
@@ -1177,7 +1303,7 @@ export default function VideoAdsManager() {
 
               {/* Table */}
               <div className="overflow-x-auto">
-                <table className="w-full text-[11px]">
+                <table className="w-full min-w-[900px] text-[11px]">
                   <thead>
                     <tr className="border-b" style={{ borderColor: C.border }}>
                       {['Preview', 'Ad Name', 'Type', 'Placement', 'Duration', 'Status', 'Impressions', 'Clicks', 'Revenue', 'CTR', 'Actions'].map(h => (
@@ -1625,11 +1751,11 @@ export default function VideoAdsManager() {
               {filteredRollAds.length > 0 ? (
                 <GlassCard style={{ padding: 0 }}>
                   <div className="overflow-x-auto">
-                    <table className="w-full text-[11px]">
+                    <table className="w-full min-w-[700px] text-[11px]">
                       <thead>
                         <tr className="border-b" style={{ borderColor: C.border }}>
                           {['Ad Name', 'Status', 'Duration', 'Impressions', 'Clicks', 'Revenue', 'CTR', 'Actions'].map(h => (
-                            <th key={h} className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textDim }}>{h}</th>
+                            <th key={h} className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap" style={{ color: C.textDim }}>{h}</th>
                           ))}
                         </tr>
                       </thead>
@@ -1715,7 +1841,7 @@ export default function VideoAdsManager() {
                   <label className="text-[11px] font-semibold uppercase tracking-wider block mb-1.5" style={{ color: C.textTer }}>Ad Name</label>
                   <input className="w-full rounded-xl border px-3.5 py-2.5 text-sm text-white placeholder:text-white/15 focus:outline-none focus:ring-1 focus:ring-red-500/50" style={{ background: 'rgba(255,255,255,0.03)', borderColor: C.border }} placeholder="Enter ad name..." />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-[11px] font-semibold uppercase tracking-wider block mb-1.5" style={{ color: C.textTer }}>Ad Type</label>
                     <select className="w-full rounded-xl border px-3.5 py-2.5 text-sm text-white focus:outline-none" style={{ background: 'rgba(255,255,255,0.03)', borderColor: C.border }}>

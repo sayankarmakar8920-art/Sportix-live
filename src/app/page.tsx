@@ -1220,7 +1220,7 @@ export default function Home() {
         <Header />
         <div className="flex flex-1 overflow-hidden">
           <Sidebar />
-          <main className="flex-1 overflow-y-auto pb-20 lg:pb-4">
+          <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto pb-20 lg:pb-4">
             {renderMainContent()}
           </main>
         </div>

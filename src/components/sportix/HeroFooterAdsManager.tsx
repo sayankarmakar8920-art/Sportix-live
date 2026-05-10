@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
+import { uploadFile, getUploadStatusMessage, type UploadProgress } from '@/lib/upload-utils'
 import {
   Eye, MousePointerClick, DollarSign, TrendingUp, Target,
   Download, Upload, CloudUpload, Pause, X, Play, Search, Filter,
@@ -388,6 +389,10 @@ export default function HeroFooterAdsManager() {
   const [openIn, setOpenIn] = useState('New Tab')
   const [adEnabled, setAdEnabled] = useState(true)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null)
+  const [uploadedMediaUrl, setUploadedMediaUrl] = useState('')
+  const uploadCancelRef = useRef<(() => void) | null>(null)
 
   // Settings
   const [adRotation, setAdRotation] = useState('enable')
@@ -408,7 +413,41 @@ export default function HeroFooterAdsManager() {
     setUploadedFile(file)
     if (uploadPreview) URL.revokeObjectURL(uploadPreview)
     setUploadPreview(URL.createObjectURL(file))
+    setUploadedMediaUrl('')
+    setUploadProgress(null)
   }
+
+  const handleCreateAd = useCallback(async () => {
+    if (!uploadedFile) return
+    setUploading(true)
+    setUploadProgress({ percent: 0, loaded: 0, total: uploadedFile.size, speed: 0, eta: 0, status: 'uploading' })
+    try {
+      const { promise, cancel } = uploadFile(uploadedFile, setUploadProgress, { type: 'ad' })
+      uploadCancelRef.current = cancel
+      const result = await promise
+      if (result.success) {
+        setUploadedMediaUrl(result.url)
+        // Create the ad entry locally
+        const newAd: HeroAdItem = {
+          id: String(Date.now()),
+          name: uploadedFile.name.replace(/\.[^.]+$/, ''),
+          placement: createTab === 'hero' ? 'Hero Banner' : 'Footer Banner',
+          size: createTab === 'hero' ? '1920×600' : '1200×200',
+          status: 'Draft',
+          impressions: 0, clicks: 0, ctr: 0, revenue: 0,
+          mediaUrl: result.url,
+          targetUrl: adLink,
+          deviceTarget: 'all',
+          openIn: openIn as 'New Tab' | 'Same Tab',
+          isFeatured: false,
+        }
+        setAds(prev => [newAd, ...prev])
+        setActiveTab('ads-list')
+      }
+    } catch { /* ignore */ }
+    finally { setUploading(false); uploadCancelRef.current = null }
+  }, [uploadedFile, createTab, adLink, openIn])
+
   const isVideoFile = uploadedFile?.type.startsWith('video/')
   const perPage = 8
 
@@ -659,8 +698,33 @@ export default function HeroFooterAdsManager() {
                 <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm" className="hidden" onChange={handleFileSelect} />
               </div>
 
+              {/* Upload Progress */}
+              {uploading && uploadProgress && (
+                <div className="mt-3 rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/10 border-t-red-500 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-white truncate">
+                        {uploadProgress.status === 'done' ? 'Upload Complete!' : `Uploading... ${uploadProgress.percent}%`}
+                      </p>
+                      <p className="text-[10px]" style={{ color: C.textTer }}>
+                        {getUploadStatusMessage(uploadProgress, uploadedFile?.name)}
+                      </p>
+                    </div>
+                    {uploadProgress.status !== 'done' && (
+                      <button onClick={() => uploadCancelRef.current?.()} className="text-[10px] font-medium px-2.5 py-1 rounded-lg transition-colors hover:bg-white/[0.06] flex-shrink-0" style={{ color: C.accent }}>
+                        Cancel
+                      </button>
+                    )}
+                  </div>
+                  <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                    <div className="h-full rounded-full transition-all duration-300" style={{ width: `${uploadProgress.percent}%`, background: uploadProgress.status === 'done' ? C.success : C.accent }} />
+                  </div>
+                </div>
+              )}
+
               {/* Upload Preview */}
-              {uploadPreview && (
+              {uploadPreview && !uploading && (
                 <div className="mt-3 rounded-xl overflow-hidden relative" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
                   <div className="aspect-[21/9]">
                     {isVideoFile ? (
@@ -669,14 +733,14 @@ export default function HeroFooterAdsManager() {
                       <img src={uploadPreview} alt="Upload preview" className="w-full h-full object-cover" />
                     )}
                   </div>
-                  <button onClick={() => { if (uploadPreview) URL.revokeObjectURL(uploadPreview); setUploadPreview(null); setUploadedFile(null) }}
+                  <button onClick={() => { if (uploadPreview) URL.revokeObjectURL(uploadPreview); setUploadPreview(null); setUploadedFile(null); setUploadedMediaUrl(''); setUploadProgress(null) }}
                     className="absolute top-2 right-2 h-7 w-7 rounded-lg flex items-center justify-center bg-black/60 hover:bg-black/80 transition-colors" style={{ color: '#fff' }}>
                     <X className="h-3.5 w-3.5" />
                   </button>
                   {uploadedFile && (
                     <div className="absolute bottom-2 left-2 flex items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-medium" style={{ background: 'rgba(0,0,0,0.7)', color: C.textSec }}>
                       {isVideoFile ? <Video className="h-3 w-3" /> : <ImageIcon className="h-3 w-3" />}
-                      {uploadedFile.name} ({(uploadedFile.size / (1024 * 1024)).toFixed(1)}MB)
+                      {uploadedFile.name} ({uploadedFile.size >= 1_073_741_824 ? (uploadedFile.size / 1_073_741_824).toFixed(2) + ' GB' : (uploadedFile.size / (1024 * 1024)).toFixed(1) + ' MB'})
                     </div>
                   )}
                 </div>
@@ -694,7 +758,7 @@ export default function HeroFooterAdsManager() {
                 </div>
 
                 {/* Open In + Toggle */}
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="flex items-center gap-2.5">
                     <div>
                       <label className="text-[11px] font-semibold uppercase tracking-wider block mb-1.5" style={{ color: C.textTer }}>Open In</label>
@@ -715,10 +779,15 @@ export default function HeroFooterAdsManager() {
                   </div>
                 </div>
 
-                <div className="flex justify-end pt-2">
-                  <button className="flex items-center gap-2 rounded-xl px-5 py-2.5 text-xs font-semibold text-white transition-all hover:brightness-110"
+                <div className="flex justify-end pt-2 gap-2">
+                  {uploadProgress?.status === 'done' && (
+                    <button onClick={() => { setUploadProgress(null); setUploadedFile(null); setUploadPreview(null); setUploadedMediaUrl('') }} className="flex items-center gap-2 rounded-xl px-5 py-2.5 text-xs font-semibold text-white transition-all hover:brightness-110" style={{ background: 'rgba(255,255,255,0.1)' }}>
+                      <X className="h-4 w-4" /> Clear
+                    </button>
+                  )}
+                  <button onClick={handleCreateAd} disabled={uploading || !uploadedFile} className="flex items-center gap-2 rounded-xl px-5 py-2.5 text-xs font-semibold text-white transition-all hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed"
                     style={{ background: C.accent, boxShadow: `0 4px 20px ${C.accentGlow}` }}>
-                    <Check className="h-4 w-4" /> Create Ad
+                    <Check className="h-4 w-4" /> {uploading ? 'Uploading...' : uploadProgress?.status === 'done' ? 'Create Another' : 'Create Ad'}
                   </button>
                 </div>
               </div>
@@ -761,7 +830,7 @@ export default function HeroFooterAdsManager() {
               </div>
 
               <div className="overflow-x-auto">
-                <table className="w-full text-[11px]">
+                <table className="w-full min-w-[800px] text-[11px]">
                   <thead>
                     <tr className="border-b" style={{ borderColor: C.border }}>
                       {['Preview', 'Ad Name', 'Placement', 'Size', 'Status', 'Impressions', 'Clicks', 'CTR', 'Revenue', 'Actions'].map(h => (
@@ -1002,7 +1071,7 @@ export default function HeroFooterAdsManager() {
                 </div>
                 <div className="h-px" style={{ background: C.border }} />
 
-                <div className="grid grid-cols-2 gap-2.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   <div>
                     <label className="text-[11px] font-semibold uppercase tracking-wider block mb-1.5" style={{ color: C.textTer }}>Start Date</label>
                     <div className="flex items-center gap-2 rounded-xl border px-3 py-1.5" style={{ borderColor: C.border, background: 'rgba(255,255,255,0.03)' }}>
@@ -1043,7 +1112,7 @@ export default function HeroFooterAdsManager() {
               </div>
               <div className="space-y-3">
                 <div><label className="text-[11px] font-semibold uppercase tracking-wider block mb-1.5" style={{ color: C.textTer }}>Ad Name</label><input className="w-full rounded-xl border px-3.5 py-2.5 text-sm text-white placeholder:text-white/15 focus:outline-none" style={{ background: 'rgba(255,255,255,0.03)', borderColor: C.border }} placeholder="Enter ad name..." /></div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div><label className="text-[11px] font-semibold uppercase tracking-wider block mb-1.5" style={{ color: C.textTer }}>Placement</label><select className="w-full rounded-xl border px-3.5 py-2.5 text-sm text-white focus:outline-none" style={{ background: 'rgba(255,255,255,0.03)', borderColor: C.border }}><option>Hero Banner</option><option>Footer Banner</option><option>Sticky Banner</option></select></div>
                   <div><label className="text-[11px] font-semibold uppercase tracking-wider block mb-1.5" style={{ color: C.textTer }}>Size</label><select className="w-full rounded-xl border px-3.5 py-2.5 text-sm text-white focus:outline-none" style={{ background: 'rgba(255,255,255,0.03)', borderColor: C.border }}><option>1920×600</option><option>1200×200</option><option>728×90</option></select></div>
                 </div>

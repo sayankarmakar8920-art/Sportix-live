@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAppStore } from '@/lib/store'
 import { io as socketIo } from 'socket.io-client'
+import { uploadFile, getUploadStatusMessage, type UploadProgress } from '@/lib/upload-utils'
 import {
   LayoutDashboard,
   Activity,
@@ -329,11 +330,11 @@ function GenericPage({ title, subtitle, icon, accent }: { title: string; subtitl
       {/* Table */}
       <Card className="!p-0 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full min-w-[600px]">
             <thead>
               <tr className="border-b" style={{ borderColor: C.border, background: 'rgba(255,255,255,0.02)' }}>
                 {['ID', 'Title', 'Status', 'Views', 'Date', 'Actions'].map((h) => (
-                  <th key={h} className="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textDim }}>{h}</th>
+                  <th key={h} className="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap" style={{ color: C.textDim }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -438,11 +439,11 @@ function LiveMonitorPage() {
           </div>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full min-w-[700px]">
             <thead>
               <tr className="border-b" style={{ borderColor: C.border, background: 'rgba(255,255,255,0.02)' }}>
                 {['Stream', 'Category', 'Viewers', 'Peak', 'Duration', 'Health', 'Actions'].map((h) => (
-                  <th key={h} className="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textDim }}>{h}</th>
+                  <th key={h} className="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap" style={{ color: C.textDim }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -682,9 +683,9 @@ function AnalyticsPage() {
         <Card className="lg:col-span-2">
           <CardHeader title="Top Campaigns by Performance"><button className="text-[11px] font-medium" style={{ color: C.accent }}>View All</button></CardHeader>
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full min-w-[800px]">
               <thead><tr className="border-b" style={{ borderColor: C.border }}>
-                {['Campaign', 'Revenue', 'Impressions', 'Clicks', 'CTR', 'Conv.', 'Cost/Conv.', 'ROAS'].map(h => <th key={h} className="pb-2 text-left text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textDim }}>{h}</th>)}
+                {['Campaign', 'Revenue', 'Impressions', 'Clicks', 'CTR', 'Conv.', 'Cost/Conv.', 'ROAS'].map(h => <th key={h} className="pb-2 text-left text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap" style={{ color: C.textDim }}>{h}</th>)}
               </tr></thead>
               <tbody>{campaigns.map((c, i) => (
                 <tr key={i} className="border-b transition-colors hover:bg-white/[0.02]" style={{ borderColor: C.border }}>
@@ -853,9 +854,9 @@ function EngagementPage() {
           <button className="text-[11px] font-medium" style={{ color: C.accent }}>View All</button>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full min-w-[900px]">
             <thead><tr className="border-b" style={{ borderColor: C.border, background: 'rgba(255,255,255,0.02)' }}>
-              {['Ad Preview', 'Campaign', 'Engagements', 'ER %', 'Likes', 'Comments', 'Shares', 'Saves', 'Actions'].map(h => <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textDim }}>{h}</th>)}
+              {['Ad Preview', 'Campaign', 'Engagements', 'ER %', 'Likes', 'Comments', 'Shares', 'Saves', 'Actions'].map(h => <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap" style={{ color: C.textDim }}>{h}</th>)}
             </tr></thead>
             <tbody>{topAds.map((a, i) => (
               <tr key={i} className="border-b transition-colors hover:bg-white/[0.02]" style={{ borderColor: C.border }}>
@@ -975,9 +976,9 @@ function RevenuePage() {
         <Card className="lg:col-span-2">
           <CardHeader title="Revenue by Campaign"><button className="text-[11px] font-medium" style={{ color: C.accent }}>View All</button></CardHeader>
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full min-w-[800px]">
               <thead><tr className="border-b" style={{ borderColor: C.border }}>
-                {['Campaign', 'Revenue', 'Ad Revenue', 'Sub', 'Other', 'Refunds', 'Change', 'Trend'].map(h => <th key={h} className="pb-2 text-left text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textDim }}>{h}</th>)}
+                {['Campaign', 'Revenue', 'Ad Revenue', 'Sub', 'Other', 'Refunds', 'Change', 'Trend'].map(h => <th key={h} className="pb-2 text-left text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap" style={{ color: C.textDim }}>{h}</th>)}
               </tr></thead>
               <tbody>{campaigns.map((c, i) => (
                 <tr key={i} className="border-b transition-colors hover:bg-white/[0.02]" style={{ borderColor: C.border }}>
@@ -1137,7 +1138,7 @@ function HeroFooterAdsPage() {
               <input type="text" value={form.targetUrl} onChange={e => setForm(f => ({ ...f, targetUrl: e.target.value }))} placeholder="https://example.com/offer" className="w-full rounded-xl border bg-white/[0.03] px-4 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:ring-1" style={{ borderColor: C.border, focusRingColor: `${C.accent}40` }} />
             </div>
             {/* Type + Device Target */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="text-[11px] font-medium mb-1.5 block" style={{ color: C.textSec }}>Media Type</label>
                 <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))} className="w-full rounded-xl border bg-white/[0.03] px-4 py-2.5 text-sm text-white focus:outline-none" style={{ borderColor: C.border }}>
@@ -1344,9 +1345,9 @@ function BannerAnalyticsPage() {
         <Card>
           <CardHeader title="Top Performing Banners"><button className="text-[11px] font-medium" style={{ color: C.accent }}>View All</button></CardHeader>
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full min-w-[600px]">
               <thead><tr className="border-b" style={{ borderColor: C.border }}>
-                {['#', 'Banner', 'Impressions', 'Clicks', 'CTR', 'Revenue'].map(h => <th key={h} className="pb-2 text-left text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textDim }}>{h}</th>)}
+                {['#', 'Banner', 'Impressions', 'Clicks', 'CTR', 'Revenue'].map(h => <th key={h} className="pb-2 text-left text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap" style={{ color: C.textDim }}>{h}</th>)}
               </tr></thead>
               <tbody>{topBanners.map((b, i) => (
                 <tr key={i} className="border-b transition-colors hover:bg-white/[0.02]" style={{ borderColor: C.border }}>
@@ -1372,9 +1373,9 @@ function BannerAnalyticsPage() {
             ))}
           </div>
           <div className="overflow-x-auto mt-3">
-            <table className="w-full">
+            <table className="w-full min-w-[1000px]">
               <thead><tr className="border-b" style={{ borderColor: C.border, background: 'rgba(255,255,255,0.02)' }}>
-                {['Banner Info', 'Placement', 'Status', 'Impressions', 'Clicks', 'CTR', 'CPC', 'Revenue', 'Conv.', 'Actions'].map(h => <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textDim }}>{h}</th>)}
+                {['Banner Info', 'Placement', 'Status', 'Impressions', 'Clicks', 'CTR', 'CPC', 'Revenue', 'Conv.', 'Actions'].map(h => <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap" style={{ color: C.textDim }}>{h}</th>)}
               </tr></thead>
               <tbody>{allBanners.map((b, i) => (
                 <tr key={i} className="border-b transition-colors hover:bg-white/[0.02]" style={{ borderColor: C.border }}>
@@ -2155,11 +2156,11 @@ function AdsManagerPage() {
       {/* Ads Table */}
       <Card className="!p-0 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full min-w-[700px]">
             <thead>
               <tr className="border-b" style={{ borderColor: C.border, background: 'rgba(255,255,255,0.02)' }}>
                 {['Title', 'Type', 'Category', 'Impressions', 'Clicks', 'CTR', 'Status', 'Actions'].map((h) => (
-                  <th key={h} className="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textDim }}>{h}</th>
+                  <th key={h} className="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap" style={{ color: C.textDim }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -2287,21 +2288,23 @@ function CreateNewAdSection() {
     finally { setCreating(false) }
   }
 
+  const [adUploadProgress, setAdUploadProgress] = useState<UploadProgress | null>(null)
+  const adUploadCancelRef = useRef<(() => void) | null>(null)
+
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
     setUploading(true)
+    setAdUploadProgress({ percent: 0, loaded: 0, total: file.size, speed: 0, eta: 0, status: 'uploading' })
     try {
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('type', 'ad')
-      const res = await fetch('/api/upload', { method: 'POST', body: formData })
-      if (res.ok) {
-        const data = await res.json()
-        setForm(prev => ({ ...prev, mediaUrl: data.url || data.fileUrl || '' }))
+      const { promise, cancel } = uploadFile(file, setAdUploadProgress, { type: 'ad' })
+      adUploadCancelRef.current = cancel
+      const result = await promise
+      if (result.success) {
+        setForm(prev => ({ ...prev, mediaUrl: result.url || result.fileUrl || '' }))
       }
     } catch { /* ignore */ }
-    finally { setUploading(false) }
+    finally { setUploading(false); adUploadCancelRef.current = null }
   }
 
   // Estimated calculations
@@ -2381,7 +2384,7 @@ function CreateNewAdSection() {
             </div>
 
             {/* Ad Type + Placement */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-[11px] font-medium mb-1.5" style={{ color: C.textSec }}>Ad Type</label>
                 <div className="relative">
@@ -2444,15 +2447,27 @@ function CreateNewAdSection() {
                 </div>
               ) : (
                 <label className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 transition-colors hover:border-white/10 cursor-pointer" style={{ borderColor: C.border, background: 'rgba(255,255,255,0.01)' }}>
-                  {uploading ? (
-                    <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/10 border-t-[#2ecc71]" />
+                  {uploading && adUploadProgress ? (
+                    <div className="flex flex-col items-center gap-2 w-full max-w-[280px]">
+                      <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/10 border-t-[#2ecc71]" />
+                      <p className="text-[12px] font-medium text-white">{adUploadProgress.percent}% Uploading</p>
+                      <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                        <div className="h-full rounded-full transition-all duration-300" style={{ width: `${adUploadProgress.percent}%`, background: '#2ecc71' }} />
+                      </div>
+                      <p className="text-[10px] text-center" style={{ color: C.textTer }}>
+                        {getUploadStatusMessage(adUploadProgress)}
+                      </p>
+                      <button type="button" onClick={(ev) => { ev.preventDefault(); ev.stopPropagation(); adUploadCancelRef.current?.() }} className="text-[10px] font-medium mt-1 px-3 py-1 rounded-lg transition-colors hover:bg-white/[0.06]" style={{ color: C.accent }}>
+                        Cancel Upload
+                      </button>
+                    </div>
                   ) : (
                     <>
                       <div className="flex h-12 w-12 items-center justify-center rounded-xl mb-2" style={{ background: `${C.success}10` }}>
                         <CloudUpload className="h-6 w-6" style={{ color: C.success }} />
                       </div>
                       <p className="text-[12px] font-medium text-white">Drag & drop your file here or click to browse</p>
-                      <p className="text-[10px] mt-1" style={{ color: C.textDim }}>JPG, PNG, GIF, MP4, WEBM (max 5MB)</p>
+                      <p className="text-[10px] mt-1" style={{ color: C.textDim }}>JPG, PNG, GIF, MP4, WEBM (max 5GB)</p>
                     </>
                   )}
                   <input type="file" accept="image/*,video/*" onChange={handleUpload} className="hidden" />
@@ -2700,7 +2715,7 @@ function CreateNewAdSection() {
           </div>
           <p className="text-[10px] mb-4" style={{ color: C.textDim }}>Estimated impressions in next 30 days</p>
 
-          <div className="grid grid-cols-3 gap-3 mb-5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
             {/* Est. Impressions */}
             <div className="flex flex-col items-center gap-2 rounded-xl p-3 text-center border" style={{ borderColor: C.border, background: 'rgba(255,255,255,0.02)' }}>
               <div className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: `${C.success}15` }}>
@@ -2738,7 +2753,7 @@ function CreateNewAdSection() {
               <Info className="h-3.5 w-3.5 flex-shrink-0" style={{ color: C.warning }} />
               <span className="text-[9px] font-medium" style={{ color: C.textTer }}>Estimates are based on your CPM, CPC and Historical data</span>
             </div>
-            <div className="grid grid-cols-2 gap-2 text-[10px]">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[10px]">
               <div className="flex justify-between">
                 <span style={{ color: C.textDim }}>Targeting</span>
                 <span style={{ color: C.textSec }}>{selectedDevices} device{selectedDevices !== 1 ? 's' : ''} • {form.countries || 'All'}</span>
@@ -3052,22 +3067,24 @@ function VideoUploadPage() {
   }, [])
   useEffect(() => { fetchVideos() }, [fetchVideos])
 
+  const [videoUploadProgress, setVideoUploadProgress] = useState<UploadProgress | null>(null)
+  const videoUploadCancelRef = useRef<(() => void) | null>(null)
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
     setUploading(true)
+    setVideoUploadProgress({ percent: 0, loaded: 0, total: file.size, speed: 0, eta: 0, status: 'uploading' })
     try {
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('type', 'video')
-      const res = await fetch('/api/upload', { method: 'POST', body: formData })
-      if (res.ok) {
-        const data = await res.json()
-        setVideoUrl(data.url || data.fileUrl || '')
+      const { promise, cancel } = uploadFile(file, setVideoUploadProgress, { type: 'video' })
+      videoUploadCancelRef.current = cancel
+      const result = await promise
+      if (result.success) {
+        setVideoUrl(result.url || result.fileUrl || '')
         setUploadedFile(file)
       }
     } catch { /* ignore */ }
-    finally { setUploading(false) }
+    finally { setUploading(false); videoUploadCancelRef.current = null }
   }
 
   const handleVideoSubmit = async () => {
@@ -3200,10 +3217,19 @@ function VideoUploadPage() {
             {/* Upload Area (shown when no file) */}
             {!uploadedFile && !videoUrl && (
               <div className="space-y-4">
-                {uploading ? (
+                {uploading && videoUploadProgress ? (
                   <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-10" style={{ borderColor: '#4a5568' }}>
                     <div className="h-8 w-8 animate-spin rounded-full border-2 mb-3" style={{ borderColor: '#4a5568', borderTopColor: '#ef4444' }} />
-                    <p className="text-[13px] text-white">Uploading video...</p>
+                    <p className="text-[13px] text-white mb-2">{videoUploadProgress.percent}% Uploading</p>
+                    <div className="w-full max-w-[300px] h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                      <div className="h-full rounded-full transition-all duration-300" style={{ width: `${videoUploadProgress.percent}%`, background: '#ef4444' }} />
+                    </div>
+                    <p className="text-[11px] mt-2 text-center" style={{ color: '#9ca3af' }}>
+                      {getUploadStatusMessage(videoUploadProgress)}
+                    </p>
+                    <button type="button" onClick={() => videoUploadCancelRef.current?.()} className="text-[11px] font-medium mt-2 px-3 py-1 rounded-lg transition-colors hover:bg-gray-700" style={{ color: '#ef4444' }}>
+                      Cancel Upload
+                    </button>
                   </div>
                 ) : (
                   <label className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-10 cursor-pointer transition-all hover:border-gray-500" style={{ borderColor: '#4a5568' }}>
@@ -3309,7 +3335,7 @@ function VideoUploadPage() {
               </div>
 
               {/* Category + Quality */}
-              <div className="grid grid-cols-2 gap-3 md:gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                 <div>
                   <label className="block text-[13px] mb-2" style={{ color: '#d1d5db' }}>Category</label>
                   <select
@@ -3412,11 +3438,11 @@ function VideoUploadPage() {
           <span className="text-[11px] font-medium px-2.5 py-1 rounded-full" style={{ background: 'rgba(239,68,68,0.15)', color: '#ef4444' }}>{videos.length} videos</span>
         </div>
         <div className="overflow-x-auto mt-4">
-          <table className="w-full">
+          <table className="w-full min-w-[500px]">
             <thead>
               <tr className="border-b" style={{ borderColor: '#374151', background: 'rgba(255,255,255,0.03)' }}>
                 {['Title', 'Category', 'Duration', 'Status', 'Actions'].map((h) => (
-                  <th key={h} className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider" style={{ color: '#6b7280' }}>{h}</th>
+                  <th key={h} className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider whitespace-nowrap" style={{ color: '#6b7280' }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -3702,11 +3728,12 @@ function CategoriesPage() {
           </div>
         ) : (
           <Card className="!p-0 overflow-hidden">
-            <table className="w-full">
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-[500px]">
               <thead>
                 <tr className="border-b" style={{ borderColor: C.border, background: 'rgba(255,255,255,0.02)' }}>
                   {['Name', 'Videos', 'Created', 'Actions'].map((h) => (
-                    <th key={h} className="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textDim }}>{h}</th>
+                    <th key={h} className="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap" style={{ color: C.textDim }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -3731,6 +3758,7 @@ function CategoriesPage() {
                 ))}
               </tbody>
             </table>
+            </div>
           </Card>
         )
       )}
@@ -4022,11 +4050,11 @@ function VideoAdsAdminPage() {
       {/* Ads Table */}
       <Card className="!p-0 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full min-w-[800px]">
             <thead>
               <tr className="border-b" style={{ borderColor: C.border, background: 'rgba(255,255,255,0.02)' }}>
                 {['Title', 'Type', 'Duration', 'Skip', 'Device', 'Impressions', 'Clicks', 'Status', 'Actions'].map(h => (
-                  <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textDim }}>{h}</th>
+                  <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap" style={{ color: C.textDim }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -4085,7 +4113,7 @@ function VideoAdsAdminPage() {
             </div>
 
             {/* Basic Info */}
-            <div className="grid grid-cols-2 gap-3 md:gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
               <div className="col-span-2"><label className={labelCls} style={{ color: C.textDim }}>Title *</label>
                 <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="Ad title"
                   className={inputCls} style={{ borderColor: C.border, background: `${C.sidebar}50` }} /></div>
@@ -4817,11 +4845,11 @@ function SchedulesPage() {
       {viewMode === 'table' ? (
         <Card className="!p-0 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full min-w-[600px]">
               <thead>
                 <tr className="border-b" style={{ borderColor: C.border, background: 'rgba(255,255,255,0.02)' }}>
                   {['Match', 'League', 'Date & Time', 'Sport', 'Status', 'Actions'].map(h => (
-                    <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textDim }}>{h}</th>
+                    <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap" style={{ color: C.textDim }}>{h}</th>
                   ))}
                 </tr>
               </thead>

@@ -1,13 +1,14 @@
 'use client'
 
-import { useState, useRef, useMemo } from 'react'
+import { useState, useRef, useMemo, useCallback } from 'react'
 import {
   Calendar, Download, Plus, ChevronDown, Search, Filter,
   CloudUpload, Upload, FileVideo, Image as ImageIcon, Edit3, Trash2,
   Info, TrendingUp, LayoutDashboard, Eye, MousePointerClick, DollarSign,
   Target, BarChart3, Play, Clock, ArrowUpRight, Monitor, Smartphone,
-  Tablet, Settings, MoreHorizontal, GripVertical,
+  Tablet, Settings, MoreHorizontal, GripVertical, X, Check,
 } from 'lucide-react'
+import { uploadFile, getUploadStatusMessage, type UploadProgress } from '@/lib/upload-utils'
 
 /* ═══════════════════════════════════════════════════════════════
    DESIGN TOKENS
@@ -343,6 +344,24 @@ export default function VideoAdsAnalyticsPage() {
   const [adQuality, setAdQuality] = useState('4K Auto')
   const [adPlayback, setAdPlayback] = useState('Smart No Lag')
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null)
+  const [uploadedFileName, setUploadedFileName] = useState('')
+  const uploadCancelRef = useRef<(() => void) | null>(null)
+
+  const handleUploadFile = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    setUploadedFileName(file.name)
+    setUploadProgress({ percent: 0, loaded: 0, total: file.size, speed: 0, eta: 0, status: 'uploading' })
+    try {
+      const { promise, cancel } = uploadFile(file, setUploadProgress, { type: uploadTab === 'video' ? 'video' : 'ad' })
+      uploadCancelRef.current = cancel
+      await promise
+    } catch { /* ignore */ }
+    finally { setUploading(false); uploadCancelRef.current = null }
+  }, [uploadTab])
 
   /* ── Filtered Ads ── */
   const filteredAds = useMemo(() => {
@@ -704,26 +723,53 @@ export default function VideoAdsAnalyticsPage() {
               type="file"
               className="hidden"
               accept={uploadTab === 'video' ? 'video/*' : 'image/*'}
+              onChange={handleUploadFile}
             />
           </div>
 
-          {/* File Upload Info (Static) */}
-          <div className="mt-5 rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${C.border}` }}>
-            <div className="flex items-center gap-3 mb-3">
-              <div className="h-9 w-9 rounded-lg flex items-center justify-center" style={{ background: 'rgba(59,130,246,0.12)' }}>
-                <FileVideo className="h-4 w-4" style={{ color: '#3b82f6' }} />
+          {/* File Upload Progress */}
+          {uploadProgress && (
+            <div className="mt-5 rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${C.border}` }}>
+              <div className="flex items-center gap-3 mb-3">
+                <div className="h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: uploadProgress.status === 'done' ? 'rgba(16,185,129,0.12)' : uploadProgress.status === 'error' ? 'rgba(239,68,68,0.12)' : 'rgba(59,130,246,0.12)' }}>
+                  {uploadProgress.status === 'done' ? (
+                    <Check className="h-4 w-4" style={{ color: '#10b981' }} />
+                  ) : uploadProgress.status === 'error' ? (
+                    <X className="h-4 w-4" style={{ color: '#ef4444' }} />
+                  ) : uploading ? (
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/10 border-t-blue-500" />
+                  ) : (
+                    <FileVideo className="h-4 w-4" style={{ color: '#3b82f6' }} />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-white truncate">{uploadedFileName || 'Uploading...'}</p>
+                  <p className="text-[10px]" style={{ color: C.textTer }}>
+                    {getUploadStatusMessage(uploadProgress, uploadedFileName)}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {uploadProgress.status !== 'done' && uploadProgress.status !== 'error' && (
+                    <span className="text-xs font-semibold" style={{ color: C.textSec }}>{uploadProgress.percent}%</span>
+                  )}
+                  {uploading && (
+                    <button onClick={() => uploadCancelRef.current?.()} className="text-[10px] font-medium px-2 py-1 rounded-lg transition-colors hover:bg-white/[0.06]" style={{ color: C.accent }}>
+                      Cancel
+                    </button>
+                  )}
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-white truncate">Ad_Video_4K_UHD.mp4</p>
-                <p className="text-[10px]" style={{ color: C.textTer }}>2.45 GB / 5.00 GB, 49%</p>
+              {/* Progress Bar */}
+              <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                <div className="h-full rounded-full transition-all duration-300" style={{ width: `${uploadProgress.percent}%`, background: uploadProgress.status === 'done' ? '#10b981' : uploadProgress.status === 'error' ? '#ef4444' : C.accent }} />
               </div>
-              <span className="text-xs font-semibold" style={{ color: C.textSec }}>49%</span>
+              {uploadProgress.status === 'done' && (
+                <button onClick={() => setUploadProgress(null)} className="mt-2 text-[10px] font-medium transition-colors hover:underline" style={{ color: C.textTer }}>
+                  Upload another file
+                </button>
+              )}
             </div>
-            {/* Progress Bar */}
-            <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
-              <div className="h-full rounded-full" style={{ width: '49%', background: C.accent }} />
-            </div>
-          </div>
+          )}
 
           {/* Quality Options */}
           <div className="mt-5">
@@ -818,7 +864,7 @@ export default function VideoAdsAnalyticsPage() {
 
           {/* Table */}
           <div className="overflow-x-auto rounded-xl" style={{ border: `1px solid ${C.border}` }}>
-            <table className="w-full text-xs">
+            <table className="w-full min-w-[700px] text-xs">
               <thead>
                 <tr style={{ background: 'rgba(255,255,255,0.03)' }}>
                   {['Preview', 'Ad Name', 'Type', 'Placement', 'Duration', 'Status', 'Action'].map(h => (
@@ -945,7 +991,7 @@ export default function VideoAdsAnalyticsPage() {
 
         {/* Timeline Detail Table */}
         <div className="overflow-x-auto rounded-xl" style={{ border: `1px solid ${C.border}` }}>
-          <table className="w-full text-xs">
+          <table className="w-full min-w-[600px] text-xs">
             <thead>
               <tr style={{ background: 'rgba(255,255,255,0.03)' }}>
                 {['Time', 'Preview', 'Ad Name', 'Type', 'Duration', 'Action'].map(h => (

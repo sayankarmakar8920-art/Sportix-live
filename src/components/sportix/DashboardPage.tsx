@@ -344,47 +344,47 @@ export default function DashboardPage() {
             Here&apos;s what&apos;s happening with your platform today.
           </p>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex items-center gap-2 flex-shrink-0 overflow-x-auto no-scrollbar">
           {/* Search */}
-          <div className="flex items-center gap-2 rounded-xl border px-3 py-2" style={{ borderColor: C.border, background: 'rgba(255,255,255,0.03)' }}>
-            <Search className="h-4 w-4" style={{ color: C.textDim }} />
-            <input type="text" placeholder="Search here..." className="bg-transparent text-sm text-white placeholder:text-white/25 focus:outline-none w-36 sm:w-48" />
+          <div className="flex items-center gap-2 rounded-xl border px-3 py-2 min-w-0" style={{ borderColor: C.border, background: 'rgba(255,255,255,0.03)' }}>
+            <Search className="h-4 w-4 flex-shrink-0" style={{ color: C.textDim }} />
+            <input type="text" placeholder="Search here..." className="bg-transparent text-sm text-white placeholder:text-white/25 focus:outline-none w-28 sm:w-36 md:w-48" />
           </div>
           {/* Currency */}
-          <button className="flex items-center gap-1 rounded-xl border px-3 py-2 text-xs font-medium transition-colors hover:bg-white/[0.03]" style={{ borderColor: C.border, color: C.textSec }}>
+          <button className="flex items-center gap-1 rounded-xl border px-2.5 sm:px-3 py-2 text-xs font-medium transition-colors hover:bg-white/[0.03] whitespace-nowrap" style={{ borderColor: C.border, color: C.textSec }}>
             ₹K <ChevronDown className="h-3 w-3" />
           </button>
           {/* Create */}
-          <button className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold text-white transition-all hover:opacity-90" style={{ background: C.accent }}>
-            <Plus className="h-3.5 w-3.5" /> Create
+          <button className="flex items-center gap-1.5 rounded-xl px-2.5 sm:px-3 py-2 text-xs font-semibold text-white transition-all hover:opacity-90 whitespace-nowrap" style={{ background: C.accent }}>
+            <Plus className="h-3.5 w-3.5" /> <span className="hidden xs:inline">Create</span>
           </button>
         </div>
       </div>
 
       {/* ════════ 6 KPI CARDS ════════ */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
         {kpis.map((kpi) => {
           const Icon = kpi.icon
           return (
             <div
               key={kpi.label}
-              className="rounded-2xl border p-3.5 transition-all duration-200 hover:border-white/10"
+              className="rounded-2xl border p-3 sm:p-3.5 transition-all duration-200 hover:border-white/10"
               style={{ background: C.card, borderColor: C.border }}
             >
-              <div className="flex items-center justify-between mb-2.5">
+              <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-xl" style={{ background: `${kpi.color}18` }}>
-                    <Icon className="h-4 w-4" style={{ color: kpi.color }} />
+                  <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-xl" style={{ background: `${kpi.color}18` }}>
+                    <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" style={{ color: kpi.color }} />
                   </div>
                 </div>
-                <Sparkline data={kpi.sparkData} color={kpi.color} width={70} height={28} />
+                <Sparkline data={kpi.sparkData} color={kpi.color} width={60} height={24} className="hidden sm:block" />
               </div>
-              <p className="text-[10px] font-medium uppercase tracking-wider mb-1" style={{ color: C.textTer }}>{kpi.label}</p>
-              <p className="text-lg sm:text-xl font-bold text-white leading-tight">{fmtValue(kpi)}</p>
-              <div className="flex items-center gap-1 mt-1.5">
+              <p className="text-[9px] sm:text-[10px] font-medium uppercase tracking-wider mb-0.5" style={{ color: C.textTer }}>{kpi.label}</p>
+              <p className="text-base sm:text-lg md:text-xl font-bold text-white leading-tight truncate">{fmtValue(kpi)}</p>
+              <div className="flex items-center gap-1 mt-1">
                 <ArrowUpRight className="h-3 w-3" style={{ color: C.green }} />
-                <span className="text-[10px] font-semibold" style={{ color: C.green }}>{kpi.change}%</span>
-                <span className="text-[9px]" style={{ color: C.textDim }}>vs Apr 10 - May 10</span>
+                <span className="text-[9px] sm:text-[10px] font-semibold" style={{ color: C.green }}>{kpi.change}%</span>
+                <span className="text-[8px] sm:text-[9px] hidden sm:inline" style={{ color: C.textDim }}>vs Apr 10 - May 10</span>
               </div>
             </div>
           )
@@ -556,11 +556,11 @@ export default function DashboardPage() {
           <button className="text-[11px] font-medium" style={{ color: C.purple }}>View All</button>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full min-w-[700px]">
             <thead>
               <tr className="border-b" style={{ borderColor: C.border, background: 'rgba(255,255,255,0.02)' }}>
                 {['Video', 'Category', 'Duration', 'Views', 'Likes', 'Status', 'Published On', 'Actions'].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textDim }}>
+                  <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap" style={{ color: C.textDim }}>
                     {h}
                   </th>
                 ))}
