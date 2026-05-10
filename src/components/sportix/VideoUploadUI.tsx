@@ -29,7 +29,7 @@ interface VideoUploadUIProps {
   onClose: () => void
 }
 
-export default function VideoUploadUI({ onClose }: VideoUploadUIProps) {
+const VideoUploadUI = React.memo(function VideoUploadUI({ onClose }: VideoUploadUIProps) {
   const [activeTab, setActiveTab] = useState('video')
   const [title, setTitle] = useState('Nature Cinematic Trailer')
   const [description, setDescription] = useState('A cinematic trailer showcasing the beauty of nature, stunning landscapes, and peaceful moments.')
@@ -508,4 +508,6 @@ export default function VideoUploadUI({ onClose }: VideoUploadUIProps) {
       </div>
     </div>
   )
-}
+})
+
+export default VideoUploadUI

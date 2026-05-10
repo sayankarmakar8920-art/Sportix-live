@@ -233,7 +233,7 @@ function DonutChart({ segments, size = 160, strokeWidth = 22 }: {
    DASHBOARD PAGE — Exact screenshot match
    ═══════════════════════════════════════════════════════════════ */
 
-export default function DashboardPage() {
+const DashboardPage = React.memo(function DashboardPage() {
   const [currentTime, setCurrentTime] = useState('')
   const [greeting, setGreeting] = useState('')
 
@@ -654,4 +654,6 @@ export default function DashboardPage() {
       </div>
     </div>
   )
-}
+})
+
+export default DashboardPage

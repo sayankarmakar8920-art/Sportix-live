@@ -80,23 +80,20 @@ import {
   ImageIcon as ImageIconLucide,
 } from 'lucide-react'
 
-import VideoAdsManager from './VideoAdsManager'
-import VideosPage from './VideosPage'
-import HeroFooterAdsManager from './HeroFooterAdsManager'
-import VideoAdsAnalyticsPage from './VideoAdsAnalyticsPage'
-import ReplaysPage from './ReplaysPage'
-import ReportsPage from './ReportsPage'
-import OnlineUsersPage from './OnlineUsersPage'
-import DashboardPage from './DashboardPage'
-import MatchSchedule from './MatchSchedule'
-import CategoriesPage from './CategoriesPage'
-import { lazy, Suspense } from 'react'
+const AdsManagerUI = lazy(() => import('./AdsManagerUI').catch(() => ({ default: () => <AdsManagerFallback /> })))
+const OnlineUsersPage = lazy(() => import('./OnlineUsersPage'))
+const DashboardPage = lazy(() => import('./DashboardPage'))
+const VideosPage = lazy(() => import('./VideosPage'))
+const VideoAdsManager = lazy(() => import('./VideoAdsManager'))
+const CategoriesPage = lazy(() => import('./CategoriesPage'))
+const MatchSchedule = lazy(() => import('./MatchSchedule'))
+const ReplaysPage = lazy(() => import('./ReplaysPage'))
+const ReportsPage = lazy(() => import('./ReportsPage'))
+const HeroFooterAdsManager = lazy(() => import('./HeroFooterAdsManager'))
+const VideoAdsAnalyticsPage = lazy(() => import('./VideoAdsAnalyticsPage'))
+import { Suspense } from 'react'
 import AdminAnalytics from './AdminAnalytics'
 import VideoUploadUI from './VideoUploadUI'
-
-const AdsManagerUI = lazy(() => import('./AdsManagerUI').catch(() => {
-  return { default: () => <AdsManagerFallback /> }
-}))
 
 /* ═══════════════════════════════════════════════════════════════
    DESIGN SYSTEM
@@ -4458,7 +4455,13 @@ export default function AdminPanel() {
 
         {/* ─── Page Content ─── */}
         <main className="flex-1 p-2.5 sm:p-3 md:p-4 lg:p-5">
-          {renderPage(activePage)}
+          <Suspense fallback={
+            <div className="flex h-64 w-full items-center justify-center">
+              <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/10 border-t-[#E50914]" />
+            </div>
+          }>
+            {renderPage(activePage)}
+          </Suspense>
         </main>
       </div>
     </div>

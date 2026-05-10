@@ -26,7 +26,7 @@ const C = {
   glass: 'rgba(255, 255, 255, 0.03)',
 }
 
-export default function AdminAnalytics() {
+const AdminAnalytics = React.memo(function AdminAnalytics() {
   const [stats, setStats] = useState({
     impressions: 1254000,
     clicks: 84200,
@@ -160,7 +160,9 @@ export default function AdminAnalytics() {
       </section>
     </div>
   )
-}
+})
+
+export default AdminAnalytics
 
 function KPIContainer({ title, value, change, trend, icon, color }: any) {
   return (
