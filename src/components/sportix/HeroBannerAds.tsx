@@ -57,11 +57,13 @@ function HeroSkeleton() {
   )
 }
 
+const MotionDiv = motion.div as any
+
 // ─── Fallback Banner ────────────────────────────────────────────────────────
 
 function FallbackBanner() {
   return (
-    <motion.div
+    <MotionDiv
       variants={fadeVariants}
       initial="initial"
       animate="animate"
@@ -113,7 +115,7 @@ function FallbackBanner() {
           Start Watching
         </button>
       </div>
-    </motion.div>
+    </MotionDiv>
   )
 }
 
@@ -139,7 +141,7 @@ function AdSlide({
   }
 
   return (
-    <motion.div
+    <MotionDiv
       variants={fadeVariants}
       initial="initial"
       animate="animate"
@@ -249,7 +251,7 @@ function AdSlide({
           <Play className="h-3 w-3 sm:h-3.5 sm:w-3.5 fill-white" />
         </button>
       </div>
-    </motion.div>
+    </MotionDiv>
   )
 }
 
