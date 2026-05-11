@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Megaphone, X, ExternalLink, Play } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -67,34 +68,20 @@ export default function FooterTopBanner() {
   // ── Fetch ads ──
   const fetchAds = useCallback(async () => {
     try {
-      setLoading(true)
-      const res = await fetch('/api/ads/footer?active=true')
-      if (res.ok) {
-        const data = await res.json()
-        const adList: Ad[] = Array.isArray(data) ? data : data.ads || []
-        setAds(adList)
+      const { data, error } = await supabase
+        .from('Ad')
+        .select('*')
+        .eq('position', 'footer')
+        .eq('isActive', true)
+        .order('priority', { ascending: false })
 
-        // Auto-dismiss if no ads
-        if (adList.length === 0) {
-          setDismissed(true)
-        }
-      } else {
-        // Fallback: try main ads endpoint
-        try {
-          const fallbackRes = await fetch('/api/ads?active=true')
-          if (fallbackRes.ok) {
-            const fallbackData = await fallbackRes.json()
-            const fallbackAds: Ad[] = Array.isArray(fallbackData) ? fallbackData : fallbackData.ads || []
-            setAds(fallbackAds)
-            if (fallbackAds.length === 0) setDismissed(true)
-          } else {
-            setDismissed(true)
-          }
-        } catch {
-          setDismissed(true)
-        }
+      if (error) throw error
+      if (data) {
+        setAds(data)
+        if (data.length === 0) setDismissed(true)
       }
-    } catch {
+    } catch (err) {
+      console.error('Footer ad fetch failed:', err)
       setDismissed(true)
     } finally {
       setLoading(false)
@@ -299,13 +286,15 @@ export default function FooterTopBanner() {
 
                 {/* Mobile: stacked full image with overlay */}
                 <div className="sm:hidden absolute inset-0 h-full w-full">
-                  <img
-                    src={currentAd.mediaUrl}
-                    alt={currentAd.title || 'Advertisement'}
-                    className="h-full w-full object-cover"
-                    loading="lazy"
-                    onError={() => handleImgError(currentAd.id)}
-                  />
+                    <img
+                      src={currentAd.mediaUrl}
+                      alt={currentAd.title || 'Advertisement'}
+                      className="h-full w-full object-cover"
+                      loading="eager"
+                      // @ts-ignore
+                      fetchpriority="high"
+                      onError={() => handleImgError(currentAd.id)}
+                    />
                   <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent" />
 
                   {/* Mobile overlay content */}

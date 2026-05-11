@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Play, Megaphone, X, Volume2, VolumeX } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -189,7 +190,9 @@ function AdSlide({
               className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${
                 imgLoaded ? 'opacity-100' : 'opacity-0'
               }`}
-              loading="lazy"
+              loading="eager"
+              // @ts-ignore
+              fetchpriority="high"
               onError={() => setImgError(true)}
               onLoad={() => setImgLoaded(true)}
             />
@@ -268,28 +271,26 @@ export default function HeroBannerAds() {
   // ── Fetch ads ──
   const fetchAds = useCallback(async () => {
     try {
-      setLoading(true)
-      const device = typeof window !== 'undefined' && window.innerWidth >= 768 ? 'desktop' : 'mobile'
-      const res = await fetch(`/api/ads/hero?device=${device}`)
-      if (res.ok) {
-        const data = await res.json()
-        const adList = Array.isArray(data) ? data : data.ads || []
-        setAds(adList)
-      } else {
-        // Fallback: try main ads endpoint
-        try {
-          const fallbackRes = await fetch('/api/ads?active=true')
-          if (fallbackRes.ok) {
-            const fallbackData = await fallbackRes.json()
-            const fallbackAds = Array.isArray(fallbackData) ? fallbackData : fallbackData.ads || []
-            setAds(fallbackAds)
-          }
-        } catch {
-          // Silent fail
-        }
+      // Parallel fast fetch from Supabase
+      const { data, error } = await supabase
+        .from('Ad')
+        .select('*')
+        .eq('position', 'hero')
+        .eq('isActive', true)
+        .order('priority', { ascending: false })
+
+      if (error) throw error
+      if (data) {
+        setAds(data)
       }
-    } catch {
-      // Silent fail
+    } catch (err) {
+      console.error('Fast fetch failed, using fallback:', err)
+      // Immediate fallback if direct fetch fails
+      const res = await fetch('/api/ads/hero').catch(() => null)
+      if (res?.ok) {
+        const data = await res.json()
+        setAds(data.ads || [])
+      }
     } finally {
       setLoading(false)
     }

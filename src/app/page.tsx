@@ -12,6 +12,7 @@ import CategoryTabs from '@/components/sportix/CategoryTabs'
 import VideoPlayer from '@/components/sportix/VideoPlayer'
 import BottomNav from '@/components/sportix/BottomNav'
 import { ContentSection, VideoCard } from '@/components/sportix/VideoCard'
+import { supabase } from '@/lib/supabase'
 import {
   Star, Clock, Flame, TrendingUp, Play, ArrowLeft,
   Radio, Trophy, Calendar, Award, Heart, ListVideo, Settings,
@@ -859,7 +860,7 @@ export default function Home() {
   const [streams, setStreams] = useState<StreamData[]>([])
   const [videos, setVideos] = useState<VideoData[]>([])
   const [continueWatching, setContinueWatching] = useState<ContinueData[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [activeFilter, setActiveFilter] = useState('all')
 
   const loadData = useCallback(async () => {
