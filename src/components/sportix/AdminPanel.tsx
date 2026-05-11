@@ -1349,7 +1349,7 @@ function BannerAnalyticsPage() {
 
     const channel = supabase
       .channel('banner_realtime')
-      .on('postgres_changes' as any, { event: '*', table: 'Ad' }, (payload) => {
+      .on('postgres_changes' as any, { event: '*', table: 'Ad' }, (payload: any) => {
         setBanners(current => {
           let updated = [...current]
           if (payload.eventType === 'INSERT') {
