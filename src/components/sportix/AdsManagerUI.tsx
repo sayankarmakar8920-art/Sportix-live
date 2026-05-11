@@ -82,7 +82,7 @@ function StatusBadge({ status }: { status: BannerAd['status'] }) {
 /* ═══════════════════════════════════════════════════
    MAIN COMPONENT
    ═══════════════════════════════════════════════════ */
-export default function AdsManagerUI() {
+export default function AdsManagerUI({ onCreateNew }: { onCreateNew?: () => void }) {
   const [ads, setAds] = useState<BannerAd[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [filterStatus, setFilterStatus] = useState<string>('all')
@@ -181,7 +181,11 @@ export default function AdsManagerUI() {
           <button className="flex items-center gap-1.5 rounded-xl border px-3 py-2 text-[11px] font-medium transition-all hover:bg-white/[0.03]" style={{ borderColor: C.border, color: C.textSec }}>
             <Filter className="h-3 w-3" /> Filter
           </button>
-          <button className="flex items-center gap-1.5 rounded-xl px-4 py-2 text-[11px] font-semibold text-white transition-all hover:brightness-110" style={{ background: C.accent }}>
+          <button 
+            onClick={onCreateNew}
+            className="flex items-center gap-1.5 rounded-xl px-4 py-2 text-[11px] font-semibold text-white transition-all hover:brightness-110" 
+            style={{ background: C.accent }}
+          >
             <Plus className="h-3.5 w-3.5" /> New Ad
           </button>
         </div>

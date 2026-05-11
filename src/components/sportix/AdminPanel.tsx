@@ -274,10 +274,10 @@ function AdsManagerFallback() {
   )
 }
 
-function AdsManagerWrapper() {
+function AdsManagerWrapper({ onNavigate }: { onNavigate: (p: AdminPage) => void }) {
   return (
     <Suspense fallback={<AdsManagerFallback />}>
-      <AdsManagerUI />
+      <AdsManagerUI onCreateNew={() => onNavigate('create-ad')} />
     </Suspense>
   )
 }
@@ -2305,7 +2305,7 @@ function AdsManagerPage() {
    CREATE NEW AD SECTION COMPONENT
    ═══════════════════════════════════════════════════════════════ */
 
-function CreateNewAdSection() {
+function CreateNewAdSection({ setActivePage }: { setActivePage: (p: AdminPage) => void }) {
   const [showPreview, setShowPreview] = useState(false)
   const [creating, setCreating] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -2362,6 +2362,7 @@ function CreateNewAdSection() {
           vastTag: '', devices: { desktop: true, mobile: false, tablet: false },
           countries: '', category: '', startDate: '', endDate: '', cpm: 100, cpc: 2, abGroup: '',
         })
+        setActivePage('ads-manager')
       }
     } catch { /* ignore */ }
     finally { setCreating(false) }
@@ -4363,11 +4364,11 @@ function renderPage(page: AdminPage, setActivePage: (p: AdminPage) => void): Rea
   if (page === 'notifications') return <GenericPage title="Notifications" subtitle="Notification management" icon={<Bell className="h-5 w-5" style={{ color: C.warning }} />} accent={C.warning} />
   if (page === 'admins') return <GenericPage title="Admins" subtitle="Admin team management" icon={<ShieldCheck className="h-5 w-5" style={{ color: C.info }} />} accent={C.info} />
   if (page === 'replays') return <ReplaysPage />
-  if (page === 'ads-manager') return <AdsManagerWrapper />
-  if (page === 'create-ad') return <CreateNewAdSection />
+  if (page === 'ads-manager') return <AdsManagerWrapper onNavigate={setActivePage} />
+  if (page === 'create-ad') return <CreateNewAdSection setActivePage={setActivePage} />
   if (page === 'hero-ads') return <HeroFooterAdsManager />
   if (page === 'video-ads') return <VideoAdsManager />
-  if (page === 'video-ads-analytics') return <VideoAdsAnalyticsPage />
+  if (page === 'video-ads-analytics') return <VideoAdsAnalyticsPage onNavigate={setActivePage} />
   if (page === 'rtmp-config') return <RTMPConfigPage />
   return null
 }

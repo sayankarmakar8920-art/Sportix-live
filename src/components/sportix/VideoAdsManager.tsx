@@ -755,6 +755,10 @@ export default function VideoAdsManager() {
           try {
             const res = JSON.parse(xhr.responseText)
             if (res.success) {
+              const fileUrl = res.url || res.fileUrl || ''
+              if (fileUrl) {
+                setForm(f => ({ ...f, mediaUrl: fileUrl }))
+              }
               setUploads(prev => prev.map(u =>
                 u.id === entryId
                   ? { ...u, status: 'complete', progress: 100, uploadedBytes: u.totalBytes }
@@ -850,6 +854,10 @@ export default function VideoAdsManager() {
             try {
               const res = JSON.parse(xhr.responseText)
               if (res.success) {
+                const fileUrl = res.url || res.fileUrl || ''
+                if (fileUrl) {
+                  setForm(f => ({ ...f, mediaUrl: fileUrl }))
+                }
                 // If this was the last chunk and server assembled the file
                 if (res.url) {
                   setUploads(prev => prev.map(u =>
@@ -1787,13 +1795,41 @@ export default function VideoAdsManager() {
                 </div>
                 <div>
                   <label className="text-[11px] font-bold uppercase tracking-wider block mb-2" style={{ color: C.textTer }}>Media URL</label>
-                  <input 
-                    value={form.mediaUrl}
-                    onChange={e => setForm(f => ({ ...f, mediaUrl: e.target.value }))}
-                    className="w-full rounded-xl border px-4 py-3 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-red-500/50" 
-                    style={{ background: 'rgba(255,255,255,0.02)', borderColor: 'rgba(255,255,255,0.1)' }} 
-                    placeholder="Enter direct URL or upload below..." 
-                  />
+                  <div className="flex gap-2">
+                    <input 
+                      value={form.mediaUrl}
+                      onChange={e => setForm(f => ({ ...f, mediaUrl: e.target.value }))}
+                      className="flex-1 rounded-xl border px-4 py-3 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-red-500/50" 
+                      style={{ background: 'rgba(255,255,255,0.02)', borderColor: 'rgba(255,255,255,0.1)' }} 
+                      placeholder="Enter direct URL or upload..." 
+                    />
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="rounded-xl border px-4 flex items-center justify-center transition-all hover:bg-white/5"
+                      style={{ borderColor: 'rgba(255,255,255,0.1)', color: C.textSec }}
+                      title="Upload File"
+                    >
+                      <Upload className="h-4 w-4" />
+                    </button>
+                  </div>
+                  
+                  {/* Local Upload Status in Modal */}
+                  {uploads.length > 0 && uploads[0].status === 'uploading' && (
+                    <div className="mt-2 space-y-1">
+                      <div className="flex justify-between text-[10px]" style={{ color: C.textTer }}>
+                        <span>Uploading...</span>
+                        <span>{uploads[0].progress.toFixed(0)}%</span>
+                      </div>
+                      <div className="h-1 rounded-full bg-white/5 overflow-hidden">
+                        <div className="h-full bg-red-500 transition-all" style={{ width: `${uploads[0].progress}%` }} />
+                      </div>
+                    </div>
+                  )}
+                  {uploads.length > 0 && uploads[0].status === 'complete' && (
+                    <p className="mt-1 text-[10px] text-green-500 flex items-center gap-1">
+                      <Check className="h-3 w-3" /> Upload complete! URL set.
+                    </p>
+                  )}
                 </div>
               </div>
               <div className="flex items-center gap-4 justify-end pt-4 border-t" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>

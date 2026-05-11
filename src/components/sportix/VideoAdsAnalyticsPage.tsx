@@ -9,6 +9,7 @@ import {
   Tablet, Settings, MoreHorizontal, GripVertical, X, Check,
 } from 'lucide-react'
 import { uploadFile, getUploadStatusMessage, type UploadProgress } from '@/lib/upload-utils'
+import { supabase } from '@/lib/supabase'
 
 /* ═══════════════════════════════════════════════════════════════
    DESIGN TOKENS
@@ -289,7 +290,7 @@ function DonutChartSVG({ data, size = 160, innerRadius = 48, outerRadius = 68 }:
 /* ═══════════════════════════════════════════════════════════════
    MAIN COMPONENT
    ═══════════════════════════════════════════════════════════════ */
-export default function VideoAdsAnalyticsPage() {
+export default function VideoAdsAnalyticsPage({ onNavigate }: { onNavigate?: (p: any) => void }) {
   /* ── State ── */
   const [kpis, setKpis] = useState<KPIMetric[]>([
     { label: 'Total Ads', value: '0', change: '+0%', positive: true, iconBg: 'rgba(59,130,246,0.15)', iconColor: C.blue, Icon: LayoutDashboard },
@@ -347,6 +348,18 @@ export default function VideoAdsAnalyticsPage() {
 
   useEffect(() => {
     fetchData()
+    
+    // Subscribe to real-time changes in the Ad table
+    const channel = supabase
+      .channel('video_ads_analytics_updates')
+      .on('postgres_changes' as any, { event: '*', table: 'Ad' }, () => {
+        fetchData()
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
   }, [fetchData])
 
   const [uploadTab, setUploadTab] = useState<'video' | 'image'>('video')
@@ -428,6 +441,7 @@ export default function VideoAdsAnalyticsPage() {
 
           {/* Create New Ad */}
           <button
+            onClick={() => onNavigate?.('create-ad')}
             className="flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold text-white transition-all hover:brightness-110"
             style={{ background: C.accent, boxShadow: '0 4px 20px rgba(229,9,20,0.35)' }}
           >
