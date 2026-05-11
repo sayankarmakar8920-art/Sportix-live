@@ -379,8 +379,12 @@ const DashboardPage = React.memo(function DashboardPage() {
 
   useEffect(() => {
     fetchStats()
-    const interval = setInterval(fetchStats, 30000)
+    const interval = setInterval(fetchStats, 5000)
     
+    // Manual Refresh Listener
+    const handleManualRefresh = () => fetchStats()
+    window.addEventListener('sportix-refresh-data', handleManualRefresh)
+
     const channel = supabase
       .channel('dashboard_full_updates')
       .on('postgres_changes' as any, { event: '*', table: 'Ad' }, () => fetchStats())
@@ -391,6 +395,7 @@ const DashboardPage = React.memo(function DashboardPage() {
 
     return () => {
       clearInterval(interval)
+      window.removeEventListener('sportix-refresh-data', handleManualRefresh)
       supabase.removeChannel(channel)
     }
   }, [fetchStats])

@@ -445,6 +445,10 @@ export default function HeroFooterAdsManager() {
     fetchAds()
     const interval = setInterval(fetchAds, 5000)
 
+    // Listen for manual fast refresh
+    const handleManualRefresh = () => fetchAds()
+    window.addEventListener('sportix-refresh-data', handleManualRefresh)
+
     const channel = supabase
       .channel('hero_footer_ads')
       .on('postgres_changes' as any, { event: '*', table: 'Ad' }, () => fetchAds())
@@ -452,6 +456,7 @@ export default function HeroFooterAdsManager() {
 
     return () => {
       clearInterval(interval)
+      window.removeEventListener('sportix-refresh-data', handleManualRefresh)
       supabase.removeChannel(channel)
     }
   }, [fetchAds])

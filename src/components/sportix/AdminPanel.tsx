@@ -4450,10 +4450,8 @@ export default function AdminPanel() {
         setClickCount(newCount)
       }
     } else {
-      // Single click - Fast Refresh Data (not full reload to preserve state)
-      // We can just trigger a re-fetch of the current page's data if it supports it
-      // or just do a silent refresh. For now, let's just toast or log
-      console.log('Fast Refresh triggered')
+      // Single click - Fast Refresh Data (broadcast event)
+      window.dispatchEvent(new CustomEvent('sportix-refresh-data'))
       setClickCount(1)
     }
     lastClickTime.current = now
@@ -4479,13 +4477,13 @@ export default function AdminPanel() {
     <div className="min-h-screen flex" style={{ background: C.bg }}>
       {/* ─── Sidebar ─── */}
       <aside
-        className={`fixed top-0 left-0 z-50 flex h-screen flex-col border-r transition-transform duration-300 md:translate-x-0 ${
+        className={`fixed top-0 left-0 z-50 flex h-screen flex-col border-r transition-transform duration-300 ease-in-out md:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
-        style={{ width: 280, background: C.sidebar, borderColor: C.border }}
+        style={{ width: 280, background: C.sidebar, borderColor: C.border, willChange: 'transform' }}
       >
         {/* Logo */}
-        <div className="flex h-12 items-center gap-3 border-b px-4 cursor-pointer" style={{ borderColor: C.border }} onClick={handleLogoClick}>
+        <div className="flex h-12 items-center gap-3 border-b px-4 cursor-pointer hover:bg-white/[0.02] transition-colors" style={{ borderColor: C.border }} onClick={handleLogoClick}>
           <div className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ background: C.accent, boxShadow: `0 4px 16px ${C.accentGlow}` }}>
             <Activity className="h-4.5 w-4.5 text-white" />
           </div>
@@ -4495,7 +4493,7 @@ export default function AdminPanel() {
             </h1>
             <p className="text-[9px] font-semibold uppercase tracking-[0.2em]" style={{ color: C.textDim }}>Admin Panel</p>
           </div>
-          <button onClick={() => setSidebarOpen(false)} className="ml-auto md:hidden rounded-lg p-1 hover:bg-white/[0.05]">
+          <button onClick={(e) => { e.stopPropagation(); setSidebarOpen(false) }} className="ml-auto md:hidden rounded-lg p-1 hover:bg-white/[0.05]">
             <X className="h-4 w-4" style={{ color: C.textTer }} />
           </button>
         </div>
@@ -4517,13 +4515,11 @@ export default function AdminPanel() {
                     <button
                       key={item.id}
                       onClick={() => { setActivePage(item.id); setSidebarOpen(false) }}
-                      className="relative flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-[13px] font-medium transition-all duration-150"
+                      className="relative flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-[13px] font-medium transition-all duration-75"
                       style={{
                         background: isActive ? C.accent : 'transparent',
                         color: isActive ? '#fff' : C.textSec,
                       }}
-                      onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
-                      onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.background = 'transparent' }}
                     >
                       <Icon className="h-4 w-4 flex-shrink-0" style={{ color: isActive ? '#fff' : C.textTer }} />
                       <span className="flex-1 text-left">{item.label}</span>

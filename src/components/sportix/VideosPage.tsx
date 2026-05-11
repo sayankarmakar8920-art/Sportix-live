@@ -523,12 +523,17 @@ export default function VideosPage() {
   useEffect(() => {
     fetchVideos()
     const interval = setInterval(fetchVideos, 5000)
+
+    const handleManualRefresh = () => fetchVideos()
+    window.addEventListener('sportix-refresh-data', handleManualRefresh)
+
     const channel = supabase
       .channel('videos_updates')
       .on('postgres_changes' as any, { event: '*', table: 'Video' }, () => fetchVideos())
       .subscribe()
     return () => { 
       clearInterval(interval)
+      window.removeEventListener('sportix-refresh-data', handleManualRefresh)
       supabase.removeChannel(channel) 
     }
   }, [fetchVideos])

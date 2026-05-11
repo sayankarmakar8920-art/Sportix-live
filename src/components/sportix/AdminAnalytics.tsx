@@ -64,6 +64,9 @@ const AdminAnalytics = React.memo(function AdminAnalytics() {
     fetchAnalytics()
     const interval = setInterval(fetchAnalytics, 5000)
 
+    const handleManualRefresh = () => fetchAnalytics()
+    window.addEventListener('sportix-refresh-data', handleManualRefresh)
+
     const channel = supabase
       .channel('analytics_realtime_full')
       .on('postgres_changes' as any, { event: '*', table: 'Ad' }, () => fetchAnalytics())
@@ -74,6 +77,7 @@ const AdminAnalytics = React.memo(function AdminAnalytics() {
 
     return () => {
       clearInterval(interval)
+      window.removeEventListener('sportix-refresh-data', handleManualRefresh)
       supabase.removeChannel(channel)
     }
   }, [fetchAnalytics])

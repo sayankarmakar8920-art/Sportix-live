@@ -349,6 +349,10 @@ export default function VideoAdsAnalyticsPage({ onNavigate }: { onNavigate?: (p:
   useEffect(() => {
     fetchData()
     const interval = setInterval(fetchData, 5000)
+
+    // Manual Refresh Listener
+    const handleManualRefresh = () => fetchData()
+    window.addEventListener('sportix-refresh-data', handleManualRefresh)
     
     // Subscribe to real-time changes in the Ad table
     const channel = supabase
@@ -360,6 +364,7 @@ export default function VideoAdsAnalyticsPage({ onNavigate }: { onNavigate?: (p:
 
     return () => {
       clearInterval(interval)
+      window.removeEventListener('sportix-refresh-data', handleManualRefresh)
       supabase.removeChannel(channel)
     }
   }, [fetchData])

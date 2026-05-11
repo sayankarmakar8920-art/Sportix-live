@@ -52,12 +52,17 @@ export default function MatchSchedule() {
   useEffect(() => {
     fetchMatches()
     const interval = setInterval(fetchMatches, 5000)
+
+    const handleManualRefresh = () => fetchMatches()
+    window.addEventListener('sportix-refresh-data', handleManualRefresh)
+
     const channel = supabase
       .channel('match_updates')
       .on('postgres_changes' as any, { event: '*', table: 'Stream' }, () => fetchMatches())
       .subscribe()
     return () => { 
       clearInterval(interval)
+      window.removeEventListener('sportix-refresh-data', handleManualRefresh)
       supabase.removeChannel(channel) 
     }
   }, [fetchMatches])
