@@ -93,6 +93,7 @@ const HeroFooterAdsManager = lazy(() => import('./HeroFooterAdsManager'))
 const VideoAdsAnalyticsPage = lazy(() => import('./VideoAdsAnalyticsPage'))
 import AdminAnalytics from './AdminAnalytics'
 import VideoUploadUI from './VideoUploadUI'
+import { supabase } from '@/lib/supabase'
 
 /* ═══════════════════════════════════════════════════════════════
    DESIGN SYSTEM
